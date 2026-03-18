@@ -19,6 +19,9 @@ for i in range(30):
         time.sleep(2)
 "
 
+echo "Creating migrations..."
+python manage.py makemigrations --noinput
+
 echo "Running migrations..."
 python manage.py migrate --noinput
 
