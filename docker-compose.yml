@@ -52,11 +52,16 @@ services:
       - ./backend:/app
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.dev
+      - DATABASE_URL=mysql://daisyblue:daisyblue_pass@db:3306/daisyblue
       - REDIS_URL=redis://redis:6379/0
     env_file: .env
     depends_on:
-      - backend
-      - redis
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
 
   celery-beat:
     build: ./backend
@@ -65,11 +70,16 @@ services:
       - ./backend:/app
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.dev
+      - DATABASE_URL=mysql://daisyblue:daisyblue_pass@db:3306/daisyblue
       - REDIS_URL=redis://redis:6379/0
     env_file: .env
     depends_on:
-      - backend
-      - redis
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
