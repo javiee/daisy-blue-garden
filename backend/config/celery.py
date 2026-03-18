@@ -1,4 +1,3 @@
-"""Celery app re-export so `celery -A config` works."""
 import os
 from celery import Celery
 
