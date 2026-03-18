@@ -26,6 +26,28 @@ export function useCreateGardenItem() {
   })
 }
 
+export function usePatchGardenItem(id: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Partial<import('./types').GardenItem>) => api.garden.patch(id, data),
+    onSuccess: (updated) => {
+      qc.setQueryData(['garden', id], updated)
+      qc.invalidateQueries({ queryKey: ['garden'] })
+    },
+  })
+}
+
+export function usePatchGardenItemPhoto(id: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (photo: File) => api.garden.patchPhoto(id, photo),
+    onSuccess: (updated) => {
+      qc.setQueryData(['garden', id], updated)
+      qc.invalidateQueries({ queryKey: ['garden'] })
+    },
+  })
+}
+
 export function useDeleteGardenItem() {
   const qc = useQueryClient()
   return useMutation({
@@ -46,6 +68,23 @@ export function useItemEvents(itemId: number) {
     queryKey: ['events', 'item', itemId],
     queryFn: () => api.events.byItem(itemId),
     enabled: !!itemId,
+  })
+}
+
+export function useDeleteEvent(itemId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (eventId: number) => api.events.delete(eventId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['events', 'item', itemId] }),
+  })
+}
+
+export function useCreateEvent(itemId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Omit<import('./types').CalendarEvent, 'id' | 'item_detail' | 'created_at'>) =>
+      api.events.create(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['events', 'item', itemId] }),
   })
 }
 

@@ -38,6 +38,19 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
+    patch: (id: number, data: Partial<GardenItem>) =>
+      request<GardenItem>(`/garden/${id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    patchPhoto: (id: number, photo: File) => {
+      const form = new FormData()
+      form.append('photo', photo)
+      return fetch(`${API_BASE}/garden/${id}/`, { method: 'PATCH', body: form }).then((r) => {
+        if (!r.ok) throw new Error('Failed to upload photo')
+        return r.json() as Promise<GardenItem>
+      })
+    },
     delete: (id: number) => request<void>(`/garden/${id}/`, { method: 'DELETE' }),
   },
 

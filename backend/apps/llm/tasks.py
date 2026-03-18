@@ -35,7 +35,9 @@ def generate_item_care_async(item_id: int):
         item.refresh_from_db()
         logger.info(f"Updated description/cares for {item.name}")
 
-    # Generate care schedule
+    # Generate care schedule — delete only AI-generated events, preserve manual ones
+    CalendarEvent.objects.filter(item=item, is_manual=False).delete()
+
     events_data = service.generate_care_schedule(item)
     today = date.today()
     created_count = 0

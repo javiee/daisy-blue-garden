@@ -24,6 +24,7 @@ class CalendarEvent(models.Model):
     date = models.DateField()
     recurrence = models.CharField(max_length=20, choices=RECURRENCE_CHOICES, default='once')
     event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, default='other')
+    is_manual = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

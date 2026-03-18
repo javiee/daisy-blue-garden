@@ -24,6 +24,7 @@ export interface CalendarEvent {
   date: string
   recurrence: RecurrenceType
   event_type: EventType
+  is_manual: boolean
   created_at: string
 }
 
