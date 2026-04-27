@@ -1,11 +1,8 @@
 import logging
 from datetime import date, timedelta
-from celery import shared_task
 
 logger = logging.getLogger(__name__)
 
-
-@shared_task
 def generate_item_care_async(item_id: int):
     """
     1. Fetch GardenItem
@@ -57,7 +54,7 @@ def generate_item_care_async(item_id: int):
             if event_type not in valid_event_types:
                 event_type = 'other'
 
-            CalendarEvent.objects.create(
+            new_event = CalendarEvent.objects.create(
                 item=item,
                 title=event_data.get('title', f'Care for {item.name}'),
                 description=event_data.get('description', ''),
@@ -66,6 +63,9 @@ def generate_item_care_async(item_id: int):
                 event_type=event_type,
             )
             created_count += 1
+            if recurrence != 'once':
+                from apps.events.scheduler import generate_recurring_events
+                generate_recurring_events(new_event)
         except Exception as e:
             logger.error(f"Failed to create event: {e}")
 

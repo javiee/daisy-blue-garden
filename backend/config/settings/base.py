@@ -25,7 +25,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'django_filters',
-    'django_celery_beat',
+    'django_q',
     # Local
     'apps.garden',
     'apps.events',
@@ -99,15 +99,6 @@ REST_FRAMEWORK = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-# Celery
-CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://localhost:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-
 # LLM
 LLM_PROVIDER = env('LLM_PROVIDER', default='openai')
 LLM_API_KEY = env('LLM_API_KEY', default='')
@@ -117,3 +108,13 @@ OLLAMA_BASE_URL = env('OLLAMA_BASE_URL', default='http://localhost:11434')
 # Telegram
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_CHAT_ID = env('TELEGRAM_CHAT_ID', default='')
+
+Q_CLUSTER = {
+    'name': 'daisyblue',
+    'workers': 2,
+    'timeout': 90,
+    'retry': 120,
+    'queue_limit': 50,
+    'bulk': 10,
+    'orm': 'default',   # use the default Django database 
+}

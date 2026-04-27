@@ -1,6 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import GardenItem
+from django_q.tasks import async_task
 
 
 @receiver(post_save, sender=GardenItem)
@@ -9,7 +10,7 @@ def on_garden_item_created(sender, instance, created, **kwargs):
     if created:
         try:
             from apps.llm.tasks import generate_item_care_async
-            generate_item_care_async.delay(instance.pk)
+            async_task('apps.llm.tasks.generate_item_care_async', instance.pk)
         except Exception:
             # Don't let signal errors crash item creation
             import logging

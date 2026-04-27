@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Bell, Settings } from 'lucide-react'
-import { useNotifications, useAcknowledgeNotification, useNotificationConfig } from '@/lib/hooks'
+import { useNotifications, useAcknowledgeNotification, useNotificationConfig, useSendTestNotification  } from '@/lib/hooks'
 import { NotificationItem } from '@/components/NotificationItem'
 import { api } from '@/lib/api'
 import type { NotificationFrequency } from '@/lib/types'
@@ -11,6 +11,7 @@ export default function NotificationsPage() {
   const { data: notifData, isLoading } = useNotifications()
   const { data: configData } = useNotificationConfig()
   const acknowledge = useAcknowledgeNotification()
+  const testNotification = useSendTestNotification()
 
   const [chatId, setChatId] = useState('')
   const [frequency, setFrequency] = useState<NotificationFrequency>('weekly')
@@ -99,6 +100,32 @@ export default function NotificationsPage() {
         >
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSaveConfig}
+            disabled={saving || !chatId}
+            className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Settings'}
+          </button>
+          <button
+            onClick={() => config && testNotification.mutate(config.id)}
+            disabled={!config || testNotification.isPending}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {testNotification.isPending ? 'Sending...' : 'Send Test Notification'}
+          </button>
+        </div>
+        {testNotification.isSuccess && (
+          <p className="text-sm text-green-600 dark:text-green-400">
+            Test message sent successfully.
+          </p>
+        )}
+        {testNotification.isError && (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            {(testNotification.error as Error)?.message || 'Failed to send test notification.'}
+          </p>
+        )}
       </div>
 
       {/* Pending */}

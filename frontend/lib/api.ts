@@ -79,6 +79,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    testNotification: (id: number) =>
+      request<{ status: string; message_id?: string }>(`/notifications/config/${id}/test/`, {
+      method: 'POST',
+    }),
   },
 
   llm: {

@@ -1,6 +1,12 @@
 from datetime import date, timedelta
 from .models import CalendarEvent
+import calendar
 
+def expand_all_recurring_events(months_ahead: int = 6):
+    """Expand future occurrences for all recurring events. Safe to call repeatedly."""
+    recurring = CalendarEvent.objects.exclude(recurrence='once')
+    for event in recurring:
+        generate_recurring_events(event, months_ahead=months_ahead)
 
 def generate_recurring_events(base_event: CalendarEvent, months_ahead: int = 6) -> list[CalendarEvent]:
     """
@@ -12,13 +18,13 @@ def generate_recurring_events(base_event: CalendarEvent, months_ahead: int = 6) 
 
     created = []
     current_date = base_event.date
-    end_date = date.today().replace(month=date.today().month) if True else date.today()
 
     # Calculate end date (months_ahead from now)
     month = date.today().month + months_ahead
     year = date.today().year + (month - 1) // 12
     month = ((month - 1) % 12) + 1
-    end_date = date(year, month, 1)
+    last_day = calendar.monthrange(year, month)[1]
+    end_date = date(year, month, last_day)
 
     while True:
         if base_event.recurrence == 'weekly':
@@ -39,15 +45,16 @@ def generate_recurring_events(base_event: CalendarEvent, months_ahead: int = 6) 
         if next_date >= end_date:
             break
 
-        event = CalendarEvent.objects.create(
+        event, created_flag = CalendarEvent.objects.get_or_create(
             item=base_event.item,
             title=base_event.title,
-            description=base_event.description,
             date=next_date,
             recurrence=base_event.recurrence,
             event_type=base_event.event_type,
+            defaults={'description': base_event.description},
         )
-        created.append(event)
+        if created_flag:
+            created.append(event)
         current_date = next_date
 
         if len(created) > 100:  # safety limit

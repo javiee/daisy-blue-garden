@@ -1,4 +1,4 @@
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, format } from 'date-fns'
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, format, parseISO } from 'date-fns'
 import type { CalendarEvent } from '@/lib/types'
 
 const EVENT_COLORS: Record<string, string> = {
@@ -34,7 +34,7 @@ export function MonthView({ events, currentDate }: Props) {
       {/* Calendar grid */}
       <div className="grid grid-cols-7">
         {days.map((day) => {
-          const dayEvents = events.filter((e) => isSameDay(new Date(e.date), day))
+          const dayEvents = events.filter((e) => isSameDay(parseISO(e.date), day))
           const isCurrentMonth = isSameMonth(day, currentDate)
           const isToday = isSameDay(day, new Date())
 

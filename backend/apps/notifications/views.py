@@ -3,11 +3,29 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Notification, NotificationConfig
 from .serializers import NotificationSerializer, NotificationConfigSerializer
+from .bot import send_notification_sync
 
 
 class NotificationConfigViewSet(viewsets.ModelViewSet):
     queryset = NotificationConfig.objects.all()
     serializer_class = NotificationConfigSerializer
+
+    @action(detail=True, methods=['post'], url_path='test')
+    def test_notification(self, request, pk=None):
+        config = self.get_object()
+        message = (
+            "🌸 *DaisyBlue Test Notification*\n\n"
+            "Your Telegram connection is working correctly.\n"
+            f"Chat ID: `{config.telegram_chat_id}`"
+        )
+        message_id = send_notification_sync(config.telegram_chat_id, message)
+        if message_id:
+            return Response({'status': 'sent', 'message_id': message_id})
+        return Response(
+            {'status': 'failed', 'detail': 'Could not send message. Check TELEGRAM_BOT_TOKEN and chat ID.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
 
 
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):

@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
+from django_q.tasks import async_task
 
 
 @api_view(['POST'])
@@ -15,8 +16,8 @@ def generate_care(request, item_id):
     except GardenItem.DoesNotExist:
         return Response({'error': 'Item not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    task = generate_item_care_async.delay(item_id)
-    return Response({'task_id': task.id, 'status': 'queued'})
+    task_id = async_task('apps.llm.tasks.generate_item_care_async', item_id)
+    return Response({'task_id': task_id, 'status': 'queued'})
 
 
 @api_view(['GET'])

@@ -127,3 +127,9 @@ export function useGenerateCare() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['garden'] }),
   })
 }
+
+export function useSendTestNotification() {
+  return useMutation({
+    mutationFn: (id: number) => api.notifications.testNotification(id),
+  })
+}

@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import CalendarEvent
 from .serializers import CalendarEventSerializer
+from .scheduler import generate_recurring_events
 
 
 class CalendarEventViewSet(viewsets.ModelViewSet):
@@ -36,3 +37,7 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
         events = self.get_queryset().filter(item_id=item_id)
         serializer = self.get_serializer(events, many=True)
         return Response(serializer.data)
+    def perform_create(self, serializer):
+        event = serializer.save()
+        if event.recurrence != 'once':
+            generate_recurring_events(event)

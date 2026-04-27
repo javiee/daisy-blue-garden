@@ -1,12 +1,11 @@
 import logging
 from datetime import date, timedelta
-from celery import shared_task
 from django.utils import timezone
+from django_q.tasks import async_task
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task
 def check_and_send_notifications():
     """
     Check for upcoming events and send Telegram notifications.
@@ -39,15 +38,13 @@ def check_and_send_notifications():
                 next_occurrence_date__gt=date.today(),
             ).exists():
                 continue
-
-            send_event_notification.delay(event.pk, config.pk)
+            async_task('apps.notifications.tasks.send_event_notification', event.pk, config.pk)
             sent_count += 1
 
     logger.info(f"Scheduled {sent_count} notifications")
     return sent_count
 
 
-@shared_task
 def send_event_notification(event_id: int, config_id: int):
     """Send notification for a specific event to a config's Telegram chat."""
     from .models import NotificationConfig, Notification

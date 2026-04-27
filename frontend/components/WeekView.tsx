@@ -1,4 +1,4 @@
-import { startOfWeek, addDays, format, isSameDay } from 'date-fns'
+import { startOfWeek, addDays, format, isSameDay, parseISO } from 'date-fns'
 import type { CalendarEvent } from '@/lib/types'
 import { EventTypeIcon } from './EventTypeIcon'
 
@@ -14,7 +14,7 @@ export function WeekView({ events, currentDate }: Props) {
   return (
     <div className="grid grid-cols-7 gap-2">
       {days.map((day) => {
-        const dayEvents = events.filter((e) => isSameDay(new Date(e.date), day))
+        const dayEvents = events.filter((e) => isSameDay(parseISO(e.date), day))
         const isToday = isSameDay(day, new Date())
         return (
           <div key={day.toISOString()} className="min-h-32">
