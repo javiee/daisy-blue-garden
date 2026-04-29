@@ -52,7 +52,7 @@ jobs:
         working-directory: ./backend
         env:
           DJANGO_SETTINGS_MODULE: config.settings.dev
-          DATABASE_URL: mysql://daisyblue:daisyblue_pass@127.0.0.1:3306/daisyblue_test
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/daisyblue_test
           SECRET_KEY: test-secret-key-for-ci
           LLM_PROVIDER: openai
           LLM_API_KEY: test
