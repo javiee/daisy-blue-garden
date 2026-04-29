@@ -42,7 +42,7 @@ export function NotificationItem({ notification, onAcknowledge, isAcknowledging 
         <button
           onClick={onAcknowledge}
           disabled={isAcknowledging}
-          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800 text-green-700 dark:text-green-300 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800 text-green-700 dark:text-green-300 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
         >
           <Check className="w-3.5 h-3.5" />
           Acknowledge

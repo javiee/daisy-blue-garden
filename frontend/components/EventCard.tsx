@@ -50,7 +50,7 @@ export function EventCard({ event, onDelete }: EventCardProps) {
                 until {formatDate(event.end_date)}
               </span>
             </>
-          )}
+            )}
         </div>
       </div>
 
@@ -62,14 +62,14 @@ export function EventCard({ event, onDelete }: EventCardProps) {
                 onClick={handleDelete}
                 disabled={deleting}
                 title="Confirm delete"
-                className="p-1.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900 transition-colors disabled:opacity-50"
+                className="p-2.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900 transition-colors disabled:opacity-50"
               >
                 <Check className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setConfirming(false)}
                 title="Cancel"
-                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 transition-colors"
+                className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -78,7 +78,7 @@ export function EventCard({ event, onDelete }: EventCardProps) {
             <button
               onClick={() => setConfirming(true)}
               title="Delete event"
-              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-all"
+              className="p-2.5 rounded-lghover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-all"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>

@@ -1,15 +1,22 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/Providers'
 import { Header } from '@/components/layout/Header'
 import { Navigation } from '@/components/layout/Navigation'
+import { MobileNav } from '@/components/layout/MobileNav'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'DaisyBlue Gardener',
   description: 'Manage your garden with AI-powered care recommendations',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({
@@ -25,11 +32,12 @@ export default function RootLayout({
             <Header />
             <div className="flex">
               <Navigation />
-              <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+              <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full pb-16 md:pb-0">
                 {children}
               </main>
             </div>
           </div>
+          <MobileNav />
         </Providers>
       </body>
     </html>

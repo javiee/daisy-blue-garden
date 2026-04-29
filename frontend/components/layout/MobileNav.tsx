@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Plus, Calendar, Bell } from 'lucide-react'
 import { usePendingNotifications } from '@/lib/hooks'
-import { cn } from '@/lib/utils'
 
 const links = [
   { href: '/', label: 'Garden', icon: Home },
@@ -13,33 +12,32 @@ const links = [
   { href: '/notifications', label: 'Notifications', icon: Bell },
 ]
 
-export function Navigation() {
+export function MobileNav() {
   const pathname = usePathname()
   const { data: pending } = usePendingNotifications()
   const pendingCount = pending?.length ?? 0
 
   return (
-    <nav className="hidden md:flex md:w-56 md:min-h-screen md:flex-col">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 flex bg-white dark:bg-slate-900 border-t border-green-100 dark:border-slate-700 md:hidden safe-area-pb">
       {links.map(({ href, label, icon: Icon }) => {
         const isActive = pathname === href
         return (
           <Link
             key={href}
             href={href}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
+            className={`flex-1 flex flex-col items-center py-2 gap-0.5 relative ${
               isActive
-                ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-green-50 dark:hover:bg-slate-800'
-            )}
+                ? 'text-green-700 dark:text-green-300'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
           >
-            <Icon className="w-5 h-5 flex-shrink-0" />
-            <span>{label}</span>
-            {label === 'Notifications' && pendingCount > 0 && (
-              <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {pendingCount > 9 ? '9+' : pendingCount}
-              </span>
-            )}
+            <div className="relative">
+              <Icon className="w-5 h-5" />
+              {label === 'Notifications' && pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
+              )}
+            </div>
+            <span className="text-xs">{label}</span>
           </Link>
         )
       })}

@@ -95,7 +95,7 @@ function InlineTextEdit({
       )}
       <button
         onClick={() => { setDraft(value); setEditing(true) }}
-        className="absolute -top-1 -right-1 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-slate-600 transition-all"
+        className="absolute -top-1 -right-1 p-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-slate-600 transition-all text-gray-400 hover:text-gray-700"
         title="Edit"
       >
         <Pencil className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" />
@@ -159,11 +159,11 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           )}
 
-          {/* Photo upload overlay */}
+          {/* Photo upload — desktop hover overlay */}
           <button
             onClick={() => photoInputRef.current?.click()}
             disabled={patchPhoto.isPending}
-            className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors cursor-pointer"
+            className="absolute inset-0 hidden md:flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors cursor-pointer"
             title={item.photo ? 'Replace photo' : 'Upload photo'}
           >
             <span className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity text-white">
@@ -172,6 +172,16 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
                 {patchPhoto.isPending ? 'Uploading…' : item.photo ? 'Replace photo' : 'Upload photo'}
               </span>
             </span>
+          </button>
+
+          {/* Photo upload — mobile always-visible button */}
+          <button
+            onClick={() => photoInputRef.current?.click()}
+            disabled={patchPhoto.isPending}
+            className="absolute top-2 right-2 p-2 rounded-full bg-black/50 text-white md:hidden disabled:opacity-50"
+            title={item.photo ? 'Replace photo' : 'Upload photo'}
+          >
+            <Camera className="w-5 h-5" />
           </button>
 
           <input
