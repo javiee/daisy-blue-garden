@@ -20,25 +20,26 @@ class CheckAndSendNotificationsTest(TestCase):
             event_type='watering',
         )
 
-    @patch('apps.notifications.tasks.send_event_notification')
-    def test_sends_notification_for_upcoming_event(self, mock_send):
-        mock_send.delay = MagicMock()
+    @patch('django_q.tasks.async_task')
+    def test_sends_notification_for_upcoming_event(self, mock_async_task):
         from apps.notifications.tasks import check_and_send_notifications
         count = check_and_send_notifications()
         self.assertEqual(count, 1)
-        mock_send.delay.assert_called_once_with(self.event.pk, self.config.pk)
+        mock_async_task.assert_called_once_with(
+            'apps.notifications.tasks.send_event_notification',
+            self.event.pk,
+            self.config.pk,
+        )
 
-    @patch('apps.notifications.tasks.send_event_notification')
-    def test_skips_already_notified_unacknowledged(self, mock_send):
-        mock_send.delay = MagicMock()
+    @patch('django_q.tasks.async_task')
+    def test_skips_already_notified_unacknowledged(self, mock_async_task):
         Notification.objects.create(event=self.event, config=self.config, status='sent')
         from apps.notifications.tasks import check_and_send_notifications
         count = check_and_send_notifications()
         self.assertEqual(count, 0)
 
-    @patch('apps.notifications.tasks.send_event_notification')
-    def test_skips_acknowledged_with_future_occurrence(self, mock_send):
-        mock_send.delay = MagicMock()
+    @patch('django_q.tasks.async_task')
+    def test_skips_acknowledged_with_future_occurrence(self, mock_async_task):
         notif = Notification.objects.create(event=self.event, config=self.config, status='sent')
         notif.acknowledged = True
         notif.next_occurrence_date = date.today() + timedelta(days=7)
@@ -60,7 +61,7 @@ class SendEventNotificationTest(TestCase):
             event_type='watering',
         )
 
-    @patch('apps.notifications.tasks.send_notification_sync')
+    @patch('apps.notifications.bot.send_notification_sync')
     def test_creates_sent_notification(self, mock_send):
         mock_send.return_value = '999'
         from apps.notifications.tasks import send_event_notification
@@ -69,7 +70,7 @@ class SendEventNotificationTest(TestCase):
         self.assertEqual(notif.status, 'sent')
         self.assertEqual(notif.telegram_message_id, '999')
 
-    @patch('apps.notifications.tasks.send_notification_sync')
+    @patch('apps.notifications.bot.send_notification_sync')
     def test_marks_failed_when_send_fails(self, mock_send):
         mock_send.return_value = None
         from apps.notifications.tasks import send_event_notification
