@@ -63,10 +63,10 @@ export function useCalendarEvents(params?: { week?: string; month?: string; item
   })
 }
 
-export function useItemEvents(itemId: number) {
+export function useItemEvents(itemId: number, baseOnly = true) {
   return useQuery({
-    queryKey: ['events', 'item', itemId],
-    queryFn: () => api.events.byItem(itemId),
+    queryKey: ['events', 'item', itemId, { baseOnly }],
+    queryFn: () => api.events.byItem(itemId, baseOnly ? { base_only: 'true' } : undefined),
     enabled: !!itemId,
   })
 }
@@ -82,7 +82,7 @@ export function useDeleteEvent(itemId: number) {
 export function useCreateEvent(itemId: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: Omit<import('./types').CalendarEvent, 'id' | 'item_detail' | 'created_at'>) =>
+    mutationFn: (data: Omit<import('./types').CalendarEvent, 'id' | 'item_detail' | 'created_at' | 'parent_event'>) =>
       api.events.create(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['events', 'item', itemId] }),
   })

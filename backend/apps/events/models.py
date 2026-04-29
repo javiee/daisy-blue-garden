@@ -26,7 +26,13 @@ class CalendarEvent(models.Model):
     event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, default='other')
     is_manual = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    end_date = models.DateField(null=True, blank=True)
+    parent_event = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='occurrences',
+    )
     class Meta:
         ordering = ['date']
 

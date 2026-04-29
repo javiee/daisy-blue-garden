@@ -43,6 +43,14 @@ export function EventCard({ event, onDelete }: EventCardProps) {
               Manual
             </span>
           )}
+          {event.end_date && (
+            <>
+              <span className="text-xs text-gray-300">·</span>
+              <span className="text-xs text-gray-400">
+                until {formatDate(event.end_date)}
+              </span>
+            </>
+          )}
         </div>
       </div>
 

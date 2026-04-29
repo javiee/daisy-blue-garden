@@ -18,6 +18,7 @@ export function AddEventModal({ itemId, onClose }: AddEventModalProps) {
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
   const [eventType, setEventType] = useState<EventType>('other')
   const [recurrence, setRecurrence] = useState<RecurrenceType>('once')
+  const [endDate, setEndDate] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -27,6 +28,7 @@ export function AddEventModal({ itemId, onClose }: AddEventModalProps) {
       description,
       date,
       event_type: eventType,
+      end_date: endDate || null,
       recurrence,
       is_manual: true,
     })
@@ -111,7 +113,11 @@ export function AddEventModal({ itemId, onClose }: AddEventModalProps) {
             </label>
             <select
               value={recurrence}
-              onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
+              onChange={(e) => {
+               const val = e.target.value as RecurrenceType
+               setRecurrence(val)
+               if (val === 'once') setEndDate('')
+             }}
               className="w-full rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="once">Once</option>
@@ -120,7 +126,24 @@ export function AddEventModal({ itemId, onClose }: AddEventModalProps) {
               <option value="yearly">Yearly</option>
             </select>
           </div>
-
+          {recurrence !== 'once' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700
+          dark:text-gray-300 mb-1">
+                End Date <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={date}
+                className="w-full rounded-lg border border-gray-200
+          dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm
+          text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2
+          focus:ring-green-500"
+              />
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
             <button
               type="button"

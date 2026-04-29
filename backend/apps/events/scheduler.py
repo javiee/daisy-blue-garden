@@ -4,7 +4,7 @@ import calendar
 
 def expand_all_recurring_events(months_ahead: int = 6):
     """Expand future occurrences for all recurring events. Safe to call repeatedly."""
-    recurring = CalendarEvent.objects.exclude(recurrence='once')
+    recurring =  CalendarEvent.objects.filter(parent_event__isnull=True).exclude(recurrence='once')
     for event in recurring:
         generate_recurring_events(event, months_ahead=months_ahead)
 
@@ -25,6 +25,8 @@ def generate_recurring_events(base_event: CalendarEvent, months_ahead: int = 6) 
     month = ((month - 1) % 12) + 1
     last_day = calendar.monthrange(year, month)[1]
     end_date = date(year, month, last_day)
+    if base_event.end_date and base_event.end_date < end_date:
+        end_date = base_event.end_date
 
     while True:
         if base_event.recurrence == 'weekly':
@@ -50,6 +52,7 @@ def generate_recurring_events(base_event: CalendarEvent, months_ahead: int = 6) 
             title=base_event.title,
             date=next_date,
             recurrence=base_event.recurrence,
+            parent_event=base_event,
             event_type=base_event.event_type,
             defaults={'description': base_event.description},
         )

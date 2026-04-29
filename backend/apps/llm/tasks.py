@@ -54,11 +54,21 @@ def generate_item_care_async(item_id: int):
             if event_type not in valid_event_types:
                 event_type = 'other'
 
+            raw_end_date = event_data.get('end_date')
+            end_date = None
+            if raw_end_date:
+                try:
+                    from datetime import date as date_cls
+                    end_date = date_cls.fromisoformat(str(raw_end_date))
+                except (ValueError, TypeError):
+                    end_date = None
+
             new_event = CalendarEvent.objects.create(
                 item=item,
                 title=event_data.get('title', f'Care for {item.name}'),
                 description=event_data.get('description', ''),
                 date=event_date,
+                end_date=end_date,
                 recurrence=recurrence,
                 event_type=event_type,
             )

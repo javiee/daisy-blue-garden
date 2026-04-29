@@ -25,6 +25,7 @@ Return a JSON array of care events. Each event should have:
 - event_type: one of "watering", "fertilizing", "pruning", "other"
 - recurrence: one of "once", "weekly", "monthly", "yearly"
 - days_from_now: when to start this task (integer, 1-30)
+- end_date: optional ISO date (YYYY-MM-DD) when this recurring event should stop; omit or set to null if it should repeat indefinitely
 
 Example response:
 [
@@ -33,14 +34,16 @@ Example response:
     "description": "Water thoroughly at the base, avoiding leaves. Allow soil to dry slightly between waterings.",
     "event_type": "watering",
     "recurrence": "weekly",
-    "days_from_now": 1
+    "days_from_now": 1,
+    "end_date": null
   }},
   {{
     "title": "Fertilize {item_name}",
     "description": "Apply balanced NPK fertilizer (10-10-10) diluted to half strength.",
     "event_type": "fertilizing",
     "recurrence": "monthly",
-    "days_from_now": 7
+    "days_from_now": 7,
+    "end_date": "2026-09-30" 
   }}
 ]
 

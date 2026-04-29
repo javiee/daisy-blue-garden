@@ -55,12 +55,14 @@ export const api = {
   },
 
   events: {
-    list: (params?: { week?: string; month?: string; item?: number }) => {
+    list: (params?: { week?: string; month?: string; item?: number; base_only?: string }) => {
       const qs = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : ''
       return request<PaginatedResponse<CalendarEvent>>(`/events/${qs}`)
     },
-    byItem: (itemId: number) =>
-      request<CalendarEvent[]>(`/events/by-item/${itemId}/`),
+    byItem: (itemId: number, params?: Record<string, string>) => {
+      const qs = params ? '?' + new URLSearchParams(params).toString() : ''
+      return request<CalendarEvent[]>(`/events/by-item/${itemId}/${qs}`)
+    },
     create: (data: Partial<CalendarEvent>) =>
       request<CalendarEvent>('/events/', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: number, data: Partial<CalendarEvent>) =>

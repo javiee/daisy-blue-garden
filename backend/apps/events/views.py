@@ -30,6 +30,9 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
             if match:
                 year, month_num = int(match.group(1)), int(match.group(2))
                 qs = qs.filter(date__year=year, date__month=month_num)
+        base_only = self.request.query_params.get('base_only')
+        if base_only in ('1', 'true', 'True'):
+            qs = qs.filter(parent_event__isnull=True)
         return qs
 
     @action(detail=False, methods=['get'], url_path='by-item/(?P<item_id>[^/.]+)')

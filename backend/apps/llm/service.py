@@ -54,6 +54,7 @@ class GardenLLMService:
         )
         try:
             response = self.provider.generate(prompt, system=CARE_SYSTEM_PROMPT)
+            logger.info(f"LLM description response for {item_name}: {response}")
             data, error = _parse_json_response(response, f"description of {item_name}")
             if error:
                 logger.error(f"LLM description generation failed: {error}")
@@ -81,6 +82,7 @@ class GardenLLMService:
         )
         try:
             response = self.provider.generate(prompt, system=CARE_SYSTEM_PROMPT)
+            logger.info(f"LLM description response for {item.name}: {response}")
             events, error = _parse_json_response(response, f"care schedule for {item.name}")
             if error:
                 logger.error(f"LLM schedule generation failed for {item.name}: {error}")

@@ -26,6 +26,8 @@ export interface CalendarEvent {
   event_type: EventType
   is_manual: boolean
   created_at: string
+  parent_event: number | null
+  end_date: string | null
 }
 
 export interface Notification {
