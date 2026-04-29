@@ -4,7 +4,7 @@ from django.test import TestCase, override_settings
 
 class OpenAIProviderTest(TestCase):
     @override_settings(LLM_API_KEY='test-key', LLM_MODEL='gpt-4o')
-    @patch('apps.llm.providers.OpenAI')
+    @patch('openai.OpenAI')
     def test_generate(self, mock_openai_cls):
         mock_client = MagicMock()
         mock_openai_cls.return_value = mock_client
@@ -19,10 +19,10 @@ class OpenAIProviderTest(TestCase):
 
 class AnthropicProviderTest(TestCase):
     @override_settings(LLM_API_KEY='test-key', LLM_MODEL='claude-sonnet-4-6')
-    @patch('apps.llm.providers.anthropic')
-    def test_generate(self, mock_anthropic):
+    @patch('anthropic.Anthropic')
+    def test_generate(self, mock_anthropic_cls):
         mock_client = MagicMock()
-        mock_anthropic.Anthropic.return_value = mock_client
+        mock_anthropic_cls.return_value = mock_client
         mock_client.messages.create.return_value = MagicMock(
             content=[MagicMock(text='response text')]
         )

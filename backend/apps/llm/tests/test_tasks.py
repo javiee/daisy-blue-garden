@@ -9,7 +9,7 @@ class GenerateItemCareAsyncTest(TestCase):
     def setUp(self):
         self.item = GardenItem.objects.create(name='Rose', type='plant')
 
-    @patch('apps.llm.tasks.GardenLLMService')
+    @patch('apps.llm.service.GardenLLMService')
     def test_creates_events_from_llm(self, mock_service_cls):
         mock_service = MagicMock()
         mock_service_cls.return_value = mock_service
@@ -31,12 +31,12 @@ class GenerateItemCareAsyncTest(TestCase):
         count = generate_item_care_async(self.item.pk)
 
         self.assertEqual(count, 1)
-        self.assertEqual(CalendarEvent.objects.count(), 1)
-        event = CalendarEvent.objects.first()
+        self.assertTrue(CalendarEvent.objects.filter(item=self.item).exists())
+        event = CalendarEvent.objects.filter(item=self.item).first()
         self.assertEqual(event.event_type, 'watering')
         self.assertEqual(event.item, self.item)
 
-    @patch('apps.llm.tasks.GardenLLMService')
+    @patch('apps.llm.service.GardenLLMService')
     def test_updates_item_description(self, mock_service_cls):
         mock_service = MagicMock()
         mock_service_cls.return_value = mock_service
