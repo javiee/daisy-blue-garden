@@ -2,6 +2,11 @@ name: Deploy Only
 
 on:
   workflow_dispatch:
+    inputs:
+          tag:
+            description: "Image tag to deploy (leave empty to use the latest git tag)"
+            required: false
+            default: ""
 
 jobs:
   deploy:
@@ -9,6 +14,17 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Resolve TAG 
+        id: resolve-tag
+        run: |
+          if [ -z "${{ github.event.inputs.tag }}" ]; then
+            TAG=$(git describe --tags --abrev=0)
+            echo "No tag provided, using the latest git tag: $TAG"
+          else
+            echo "Using provided tag: ${{ github.event.inputs.tag }}"
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
       - name: Connect to Tailscale
         uses: tailscale/github-action@v3
         with:
@@ -29,4 +45,4 @@ jobs:
 
       - name: Deploy
         run: |
-          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "${{ secrets.DEPLOY_COMMAND }}"
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "${{ secrets.DEPLOY_COMMAND }}" "${{ steps.resolve-tag.outputs.tag }}"
