@@ -1,0 +1,58 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: daisyblue
+      MYSQL_USER: daisyblue
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-daisyblue_pass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      timeout: 20s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    image: ghcr.io/javiee/daisy-blue-garden/backend:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - media_files:/app/media
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+      - DATABASE_URL=mysql://daisyblue:${MYSQL_PASSWORD:-daisyblue_pass}@db:3306/daisyblue
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/javiee/daisy-blue-garden/frontend:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  qcluster:
+    image: ghcr.io/javiee/daisy-blue-garden/backend:latest
+    command: python manage.py qcluster
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+      - DATABASE_URL=mysql://daisyblue:${MYSQL_PASSWORD:-daisyblue_pass}@db:3306/daisyblue
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  media_files:
