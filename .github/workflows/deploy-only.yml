@@ -18,7 +18,7 @@ jobs:
         id: resolve-tag
         run: |
           if [ -z "${{ github.event.inputs.tag }}" ]; then
-            TAG=$(git describe --tags --abrev=0)
+            TAG=$(git describe --tags --abbrev=0)
             echo "No tag provided, using the latest git tag: $TAG"
           else
             echo "Using provided tag: ${{ github.event.inputs.tag }}"
