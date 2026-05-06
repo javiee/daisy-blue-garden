@@ -10,8 +10,10 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  
     timeout-minutes: 10
+    env:
+      SITE: "gardener"
 
     steps:
       - uses: actions/checkout@v4
@@ -49,4 +51,4 @@ jobs:
 
       - name: Deploy
         run: |
-          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "${{ secrets.DEPLOY_COMMAND }}" "${{ steps.resolve-tag.outputs.tag }}"
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "${{ env.SITE }}" "${{ steps.resolve-tag.outputs.tag }}"
