@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function middleware(request: NextRequest) {
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:9000'
-  const url = `${backendUrl}${request.nextUrl.pathname}${request.nextUrl.search}`
+  let pathname = request.nextUrl.pathname
+  if (!pathname.endsWith('/')) pathname += '/'
+  const url = `${backendUrl}${pathname}${request.nextUrl.search}`
 
   const headers = new Headers(request.headers)
   headers.delete('host')
