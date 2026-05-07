@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:9000'
 
 async function proxy(request: NextRequest) {
-  const path = request.nextUrl.pathname
+  let path = request.nextUrl.pathname
+  if (!path.endsWith('/')) path += '/'
   const search = request.nextUrl.search
   const url = `${BACKEND_URL}${path}${search}`
 
