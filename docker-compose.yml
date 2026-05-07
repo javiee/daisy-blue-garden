@@ -37,7 +37,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:9000/api/v1
+      - BACKEND_URL=http://backend:9000
     depends_on:
       - backend
   qcluster:
