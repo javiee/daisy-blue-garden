@@ -1,7 +1,5 @@
 import type { NextConfig } from 'next'
 
-const backendUrl = process.env.BACKEND_URL || 'http://localhost:9000'
-
 const nextConfig: NextConfig = {
   output: 'standalone',
   images: {
@@ -12,14 +10,6 @@ const nextConfig: NextConfig = {
         pathname: '/media/**',
       },
     ],
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/api/:path*`,
-      },
-    ]
   },
 }
 
