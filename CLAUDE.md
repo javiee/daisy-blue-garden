@@ -18,7 +18,7 @@ DaisyBlue Gardener is an AI-powered garden administration application that helps
 │          React Query + Tailwind CSS + TypeScript            │
 └─────────────────────┬───────────────────────────────────────┘
                       │ HTTP REST API
-                      │ http://localhost:8000/api/v1
+                      │ http://localhost:9000/api/v1
 ┌─────────────────────▼───────────────────────────────────────┐
 │                    Backend (Django 5 + DRF)                 │
 │  ┌──────────┐  ┌──────────┐  ┌────────────┐  ┌──────────┐ │
@@ -295,7 +295,7 @@ docker-compose exec backend python manage.py createsuperuser
 ### Services
 | Service | Port | Description |
 |---------|------|-------------|
-| backend | 8000 | Django API |
+| backend | 9000 | Django API |
 | frontend | 3000 | Next.js UI |
 | db | 3306 | MySQL 8.0 |
 | redis | 6379 | Celery broker |

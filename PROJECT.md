@@ -82,7 +82,7 @@ Notification marked as acknowledged, suppressed until next occurrence
 │         TanStack React Query · Tailwind CSS · TypeScript            │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │ HTTP REST (JSON)
-                           │ http://localhost:8000/api/v1
+                           │ http://localhost:9000/api/v1
 ┌──────────────────────────▼──────────────────────────────────────────┐
 │                    Django 5 + Django REST Framework                 │
 │                                                                     │
@@ -567,7 +567,7 @@ TELEGRAM_CHAT_ID=                # optional for local dev
 python manage.py migrate
 python manage.py createsuperuser   # optional, for /admin
 python manage.py runserver
-# → API available at http://localhost:8000
+# → API available at http://localhost:9000
 ```
 
 **Step 4 — Start Celery (separate terminal):**
@@ -649,8 +649,8 @@ docker-compose exec backend python manage.py createsuperuser
 
 **Step 4 — Open the app:**
 - Frontend: http://localhost:3000
-- Backend API: http://localhost:8000/api/v1
-- Django Admin: http://localhost:8000/admin
+- Backend API: http://localhost:9000/api/v1
+- Django Admin: http://localhost:9000/admin
 
 **Services started by docker-compose:**
 
@@ -658,7 +658,7 @@ docker-compose exec backend python manage.py createsuperuser
 |---------|------|-------------|
 | `db` | 3306 | MySQL 8.0 database |
 | `redis` | 6379 | Redis (Celery broker) |
-| `backend` | 8000 | Django dev server |
+| `backend` | 9000 | Django dev server |
 | `celery` | — | Celery worker |
 | `celery-beat` | — | Celery Beat scheduler |
 | `frontend` | 3000 | Next.js app |
@@ -699,7 +699,7 @@ docker-compose down -v
 | `TELEGRAM_BOT_TOKEN` | For notifications | — | Token from @BotFather |
 | `TELEGRAM_CHAT_ID` | For notifications | — | Your Telegram chat ID |
 | `CORS_ALLOWED_ORIGINS` | Prod only | — | Comma-separated origins |
-| `NEXT_PUBLIC_API_URL` | Frontend | `http://localhost:8000/api/v1` | Backend API base URL |
+| `NEXT_PUBLIC_API_URL` | Frontend | `http://localhost:9000/api/v1` | Backend API base URL |
 
 ---
 

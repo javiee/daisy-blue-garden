@@ -19,12 +19,12 @@ services:
 
   backend:
     build: ./backend
-    command: python manage.py runserver 0.0.0.0:8000
+    command: python manage.py runserver 0.0.0.0:9000
     volumes:
       - ./backend:/app
       - media_files:/app/media
     ports:
-      - "8000:8000"
+      - "9000:9000"
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.dev
       - DATABASE_URL=mysql://daisyblue:daisyblue_pass@db:3306/daisyblue
@@ -37,7 +37,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - BACKEND_URL=http://backend:9000
     depends_on:
       - backend
   qcluster:

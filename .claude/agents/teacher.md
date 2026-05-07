@@ -66,7 +66,7 @@ This is a full-stack garden management application:
 - **Notifications:** Telegram bot via `python-telegram-bot`.
 - **Async:** LLM calls and notification dispatch run as Celery tasks triggered by Django signals or Celery Beat.
 - **Key models:** `GardenItem` (garden app), `CalendarEvent` (events app, has `is_manual` flag), `NotificationConfig` + `Notification` (notifications app).
-- **API base:** `http://localhost:8000/api/v1` — all resources follow standard DRF ModelViewSet conventions.
+- **API base:** `http://localhost:9000/api/v1` — all resources follow standard DRF ModelViewSet conventions.
 - **Frontend data layer:** `frontend/lib/api.ts` (fetch helpers) → `frontend/lib/hooks.ts` (React Query hooks) → page/component.
 
 Always read the relevant source files before writing your guide so your instructions are accurate for the actual current state of the code, not assumptions.
