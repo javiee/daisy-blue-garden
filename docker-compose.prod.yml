@@ -17,7 +17,7 @@ services:
   backend:
     image: ghcr.io/javiee/daisy-blue-garden/backend:latest
     ports:
-      - "8000:8000"
+      - "9000:9000"
     volumes:
       - media_files:/app/media
     environment:
@@ -34,7 +34,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - BACKEND_URL=http://backend:8000
+      - BACKEND_URL=http://backend:9000
     depends_on:
       - backend
     restart: unless-stopped
