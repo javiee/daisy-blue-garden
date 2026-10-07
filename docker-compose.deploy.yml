@@ -26,6 +26,10 @@ services:
     build: ./backend
     entrypoint: []
     command: python manage.py qcluster
+    volumes:
+      # Same media mount as backend: async tasks (e.g. plant identification)
+      # read uploaded photos from disk.
+      - ./images:/app/media
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.dev
     env_file: .env
