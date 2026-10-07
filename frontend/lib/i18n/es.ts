@@ -101,9 +101,11 @@ export const es: TranslationDict = {
     until: 'hasta el {{date}}',
     confirmDelete: 'Confirmar borrado',
     deleteEvent: 'Borrar evento',
+    editEvent: 'Editar evento',
   },
   addEventModal: {
     title: 'Añadir Evento de Cuidado',
+    editTitle: 'Editar Evento de Cuidado',
     titleLabel: 'Título',
     titlePlaceholder: 'p. ej. Regar a fondo',
     descriptionLabel: 'Descripción',
@@ -112,6 +114,7 @@ export const es: TranslationDict = {
     typeLabel: 'Tipo',
     recurrenceLabel: 'Recurrencia',
     endDateLabel: 'Fecha de Fin',
+    repeatsYearly: 'Repetir cada año',
     addEvent: 'Añadir Evento',
   },
   notifications: {

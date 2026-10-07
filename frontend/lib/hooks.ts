@@ -76,7 +76,8 @@ export function useDeleteEvent(itemId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (eventId: number) => api.events.delete(eventId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['events', 'item', itemId] }),
+    // Prefix match so both the item schedule and the calendar refetch
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['events'] }),
   })
 }
 
@@ -85,7 +86,18 @@ export function useCreateEvent(itemId: number) {
   return useMutation({
     mutationFn: (data: Omit<import('./types').CalendarEvent, 'id' | 'item_detail' | 'created_at' | 'parent_event'>) =>
       api.events.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['events', 'item', itemId] }),
+    // Prefix match so both the item schedule and the calendar refetch
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['events'] }),
+  })
+}
+
+export function useUpdateEvent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<import('./types').CalendarEvent> }) =>
+      api.events.update(id, data),
+    // Prefix match so both the item schedule and the calendar refetch
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['events'] }),
   })
 }
 

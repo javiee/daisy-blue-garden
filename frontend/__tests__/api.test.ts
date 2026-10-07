@@ -119,4 +119,23 @@ describe('api.events', () => {
       expect.any(Object)
     )
   })
+
+  it('gets a single event by id', async () => {
+    mockFetch.mockResolvedValue(mockResponse({ id: 5, title: 'Water' }))
+    const event = await api.events.detail(5)
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/events/5/'),
+      expect.any(Object)
+    )
+    expect(event.id).toBe(5)
+  })
+
+  it('updates an event via PUT', async () => {
+    mockFetch.mockResolvedValue(mockResponse({ id: 5, title: 'Water' }))
+    await api.events.update(5, { title: 'Water more' })
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/events/5/'),
+      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ title: 'Water more' }) })
+    )
+  })
 })

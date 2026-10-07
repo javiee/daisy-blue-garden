@@ -5,8 +5,11 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns'
 import { enUS as enLocale, es as esLocale } from 'date-fns/locale'
 import { useCalendarEvents } from '@/lib/hooks'
+import { api } from '@/lib/api'
+import type { CalendarEvent } from '@/lib/types'
 import { WeekView } from '@/components/WeekView'
 import { MonthView } from '@/components/MonthView'
+import { EventFormModal } from '@/components/EventFormModal'
 import { getWeekString, getMonthString } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
@@ -15,6 +18,7 @@ type ViewMode = 'week' | 'month'
 export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
   const { t, locale } = useI18n()
 
   const params =
@@ -31,6 +35,21 @@ export default function CalendarPage() {
     } else {
       setCurrentDate(direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1))
     }
+  }
+
+  // Occurrence rows belong to a recurring series: editing one edits the
+  // series, so resolve the base event first.
+  async function handleEventClick(event: CalendarEvent) {
+    if (event.parent_event) {
+      try {
+        const base = await api.events.detail(event.parent_event)
+        setEditingEvent(base)
+        return
+      } catch {
+        // base may have just been deleted — fall through and edit the row
+      }
+    }
+    setEditingEvent(event)
   }
 
   const dfLocale = locale === 'es' ? esLocale : enLocale
@@ -91,9 +110,17 @@ export default function CalendarPage() {
           <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : viewMode === 'week' ? (
-        <WeekView events={events} currentDate={currentDate} />
+        <WeekView events={events} currentDate={currentDate} onEventClick={handleEventClick} />
       ) : (
-        <MonthView events={events} currentDate={currentDate} />
+        <MonthView events={events} currentDate={currentDate} onEventClick={handleEventClick} />
+      )}
+
+      {editingEvent && (
+        <EventFormModal
+          itemId={editingEvent.item}
+          event={editingEvent}
+          onClose={() => setEditingEvent(null)}
+        />
       )}
     </div>
   )

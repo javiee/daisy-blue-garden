@@ -72,6 +72,7 @@ export const api = {
       const qs = params ? '?' + new URLSearchParams(params).toString() : ''
       return request<CalendarEvent[]>(`/events/by-item/${itemId}/${qs}`)
     },
+    detail: (id: number) => request<CalendarEvent>(`/events/${id}/`),
     create: (data: Partial<CalendarEvent>) =>
       request<CalendarEvent>('/events/', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: number, data: Partial<CalendarEvent>) =>

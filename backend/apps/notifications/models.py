@@ -65,7 +65,12 @@ class Notification(models.Model):
         today = date.today()
         recurrence = self.event.recurrence
         if recurrence == 'once':
-            return None
+            if not self.event.repeats_yearly:
+                return None
+            try:
+                return today.replace(year=today.year + 1)
+            except ValueError:  # Feb 29 on a non-leap year
+                return today.replace(year=today.year + 1, day=28)
         elif recurrence == 'weekly':
             return today + timedelta(weeks=1)
         elif recurrence == 'monthly':

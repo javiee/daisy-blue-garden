@@ -99,9 +99,11 @@ export const en = {
     until: 'until {{date}}',
     confirmDelete: 'Confirm delete',
     deleteEvent: 'Delete event',
+    editEvent: 'Edit event',
   },
   addEventModal: {
     title: 'Add Care Event',
+    editTitle: 'Edit Care Event',
     titleLabel: 'Title',
     titlePlaceholder: 'e.g. Water deeply',
     descriptionLabel: 'Description',
@@ -110,6 +112,7 @@ export const en = {
     typeLabel: 'Type',
     recurrenceLabel: 'Recurrence',
     endDateLabel: 'End Date',
+    repeatsYearly: 'Repeat every year',
     addEvent: 'Add Event',
   },
   notifications: {

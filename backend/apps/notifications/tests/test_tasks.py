@@ -49,6 +49,39 @@ class CheckAndSendNotificationsTest(TestCase):
         self.assertEqual(count, 0)
 
 
+class AcknowledgeNextOccurrenceTest(TestCase):
+    def setUp(self):
+        self.item = GardenItem.objects.create(name='Rose', type='plant')
+        self.config = NotificationConfig.objects.create(telegram_chat_id='12345')
+
+    def _expected_next_year(self):
+        today = date.today()
+        try:
+            return today.replace(year=today.year + 1)
+        except ValueError:  # Feb 29 on a non-leap year
+            return today.replace(year=today.year + 1, day=28)
+
+    def test_acknowledge_repeating_once_event_defers_until_next_year(self):
+        event = CalendarEvent.objects.create(
+            item=self.item, title='Repot', date=date.today(),
+            recurrence='once', event_type='other', repeats_yearly=True,
+        )
+        notif = Notification.objects.create(event=event, config=self.config, status='sent')
+        notif.acknowledge()
+        notif.refresh_from_db()
+        self.assertEqual(notif.next_occurrence_date, self._expected_next_year())
+
+    def test_acknowledge_plain_once_event_has_no_next_occurrence(self):
+        event = CalendarEvent.objects.create(
+            item=self.item, title='Repot', date=date.today(),
+            recurrence='once', event_type='other', repeats_yearly=False,
+        )
+        notif = Notification.objects.create(event=event, config=self.config, status='sent')
+        notif.acknowledge()
+        notif.refresh_from_db()
+        self.assertIsNone(notif.next_occurrence_date)
+
+
 class SendEventNotificationTest(TestCase):
     def setUp(self):
         self.item = GardenItem.objects.create(name='Rose', type='plant')

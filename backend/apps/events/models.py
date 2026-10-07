@@ -27,6 +27,10 @@ class CalendarEvent(models.Model):
     is_manual = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     end_date = models.DateField(null=True, blank=True)
+    # Whether the pattern continues in following years. Default True: a
+    # 'once' event repeats on the same date each year, and a weekly/monthly
+    # series repeats its start->end window each year.
+    repeats_yearly = models.BooleanField(default=True)
     parent_event = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,

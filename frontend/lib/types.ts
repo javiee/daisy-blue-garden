@@ -34,6 +34,7 @@ export interface CalendarEvent {
   created_at: string
   parent_event: number | null
   end_date: string | null
+  repeats_yearly: boolean
 }
 
 export interface Notification {

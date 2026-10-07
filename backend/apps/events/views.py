@@ -40,7 +40,23 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
         events = self.get_queryset().filter(item_id=item_id)
         serializer = self.get_serializer(events, many=True)
         return Response(serializer.data)
+    def _expands(self, event):
+        return not (event.recurrence == 'once' and not event.repeats_yearly)
+
     def perform_create(self, serializer):
         event = serializer.save()
-        if event.recurrence != 'once':
+        if self._expands(event):
             generate_recurring_events(event)
+
+    def perform_update(self, serializer):
+        event = serializer.save()
+        if event.parent_event is None and self._expands(event):
+            # A base event was edited: its materialized occurrences are
+            # stale, so regenerate the whole series.
+            event.occurrences.all().delete()
+            generate_recurring_events(event)
+
+    def perform_destroy(self, instance):
+        if instance.parent_event is None:
+            instance.occurrences.all().delete()
+        super().perform_destroy(instance)

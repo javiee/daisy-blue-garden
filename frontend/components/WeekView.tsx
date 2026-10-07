@@ -9,9 +9,10 @@ import { useI18n } from '@/lib/i18n'
 interface Props {
   events: CalendarEvent[]
   currentDate: Date
+  onEventClick?: (event: CalendarEvent) => void
 }
 
-export function WeekView({ events, currentDate }: Props) {
+export function WeekView({ events, currentDate, onEventClick }: Props) {
   const { locale } = useI18n()
   const dfLocale = locale === 'es' ? esLocale : undefined
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
@@ -31,16 +32,18 @@ export function WeekView({ events, currentDate }: Props) {
               </div>
               <div className="space-y-1 p-1 bg-white dark:bg-slate-800 rounded-b-lg min-h-24 border border-gray-100 dark:border-slate-700">
                 {dayEvents.map((event) => (
-                  <div
+                  <button
                     key={event.id}
-                    className="text-xs p-1.5 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 hover:bg-green-100 transition-colors cursor-pointer"
+                    type="button"
+                    onClick={onEventClick ? () => onEventClick(event) : undefined}
+                    className="w-full text-left text-xs p-1.5 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 hover:bg-green-100 transition-colors cursor-pointer"
                     title={event.description}
                   >
                     <div className="font-medium text-green-800 dark:text-green-200 line-clamp-1">
                       {event.title}
                     </div>
                     <EventTypeIcon type={event.event_type} />
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
