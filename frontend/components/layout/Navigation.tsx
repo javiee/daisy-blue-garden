@@ -2,25 +2,29 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Plus, Calendar, Bell } from 'lucide-react'
+import { Home, Plus, Calendar, Bell, Settings } from 'lucide-react'
 import { usePendingNotifications } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
+import type { TKey } from '@/lib/i18n/en'
 
-const links = [
-  { href: '/', label: 'Garden', icon: Home },
-  { href: '/garden/new', label: 'Add Plant', icon: Plus },
-  { href: '/calendar', label: 'Calendar', icon: Calendar },
-  { href: '/notifications', label: 'Notifications', icon: Bell },
+const links: { href: string; key: TKey; icon: typeof Home }[] = [
+  { href: '/', key: 'nav.garden', icon: Home },
+  { href: '/garden/new', key: 'nav.addPlant', icon: Plus },
+  { href: '/calendar', key: 'nav.calendar', icon: Calendar },
+  { href: '/notifications', key: 'nav.notifications', icon: Bell },
+  { href: '/settings', key: 'nav.settings', icon: Settings },
 ]
 
 export function Navigation() {
   const pathname = usePathname()
   const { data: pending } = usePendingNotifications()
+  const { t } = useI18n()
   const pendingCount = pending?.length ?? 0
 
   return (
     <nav className="hidden md:flex md:w-56 md:min-h-screen md:flex-col">
-      {links.map(({ href, label, icon: Icon }) => {
+      {links.map(({ href, key, icon: Icon }) => {
         const isActive = pathname === href
         return (
           <Link
@@ -34,8 +38,8 @@ export function Navigation() {
             )}
           >
             <Icon className="w-5 h-5 flex-shrink-0" />
-            <span>{label}</span>
-            {label === 'Notifications' && pendingCount > 0 && (
+            <span>{t(key)}</span>
+            {key === 'nav.notifications' && pendingCount > 0 && (
               <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                 {pendingCount > 9 ? '9+' : pendingCount}
               </span>

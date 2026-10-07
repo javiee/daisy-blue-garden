@@ -3,6 +3,52 @@ from datetime import date, timedelta
 
 logger = logging.getLogger(__name__)
 
+def identify_plant_async(identification_id: int):
+    """
+    1. Fetch PlantIdentification (with uploaded photo)
+    2. Send the photo to the vision LLM
+    3. Update the record: complete + fields, or failed + readable error
+    """
+    from apps.llm.models import PlantIdentification
+    from apps.core.models import AppSetting
+    from .service import GardenLLMService
+
+    try:
+        record = PlantIdentification.objects.get(pk=identification_id)
+    except PlantIdentification.DoesNotExist:
+        logger.error(f"PlantIdentification {identification_id} not found")
+        return None
+
+    if not record.photo:
+        record.status = 'failed'
+        record.error = 'No photo was uploaded.'
+        record.save(update_fields=['status', 'error', 'updated_at'])
+        return 'failed'
+
+    setting = AppSetting.current()
+    service = GardenLLMService(
+        language=setting.language,
+        gardener_prompt=setting.gardener_prompt,
+    )
+    result = service.identify_plant(record.photo.path)
+
+    if result['error']:
+        record.status = 'failed'
+        record.error = result['error']
+    elif not result['name']:
+        record.status = 'failed'
+        record.error = 'Could not identify a plant in this photo. Try a clearer, closer shot.'
+    else:
+        record.status = 'complete'
+        record.name = result['name']
+        record.type = result['type']
+        record.description = result['description']
+        record.cares = result['cares']
+    record.save(update_fields=['status', 'error', 'name', 'type', 'description', 'cares', 'updated_at'])
+    logger.info(f"Plant identification {identification_id}: {record.status}")
+    return record.status
+
+
 def generate_item_care_async(item_id: int):
     """
     1. Fetch GardenItem
@@ -12,6 +58,7 @@ def generate_item_care_async(item_id: int):
     """
     from apps.garden.models import GardenItem
     from apps.events.models import CalendarEvent
+    from apps.core.models import AppSetting
     from .service import GardenLLMService
 
     try:
@@ -20,17 +67,25 @@ def generate_item_care_async(item_id: int):
         logger.error(f"GardenItem {item_id} not found")
         return
 
-    service = GardenLLMService()
+    setting = AppSetting.current()
+    service = GardenLLMService(
+        language=setting.language,
+        gardener_prompt=setting.gardener_prompt,
+    )
 
-    # Generate description and cares
-    result = service.generate_item_description(item.name, item.type)
-    if result['description'] or result['cares']:
-        GardenItem.objects.filter(pk=item_id).update(
-            description=result['description'],
-            cares=result['cares'],
-        )
-        item.refresh_from_db()
-        logger.info(f"Updated description/cares for {item.name}")
+    # Generate description and cares — unless both are already populated
+    # (e.g. from photo identification). Never clobber those; the care
+    # schedule below is still generated from the existing text.
+    if not (item.description and item.cares):
+        result = service.generate_item_description(item.name, item.type)
+        if result['description'] or result['cares']:
+            item.description = result['description']
+            item.cares = result['cares']
+            # Model.save() with explicit updated_at: QuerySet.update() and
+            # update_fields without auto_now fields do not bump updated_at
+            item.save(update_fields=['description', 'cares', 'updated_at'])
+            item.refresh_from_db()
+            logger.info(f"Updated description/cares for {item.name}")
 
     # Generate care schedule — delete only AI-generated events, preserve manual ones
     CalendarEvent.objects.filter(item=item, is_manual=False).delete()

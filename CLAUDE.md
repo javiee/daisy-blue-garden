@@ -25,6 +25,10 @@ DaisyBlue Gardener is an AI-powered garden administration application that helps
 │  │  garden  │  │  events  │  │    llm     │  │ notifs   │ │
 │  │   app    │  │   app    │  │    app     │  │   app    │ │
 │  └──────────┘  └──────────┘  └────────────┘  └──────────┘ │
+│  ┌──────────┐                                               │
+│  │  core    │  AppSetting (singleton: language)             │
+│  │   app    │                                               │
+│  └──────────┘                                               │
 │                   Celery + Redis (async tasks)              │
 └──────┬──────────────────────────┬───────────────────────────┘
        │                          │
@@ -76,6 +80,12 @@ Celery Beat runs the `check_and_send_notifications` task on a configurable sched
 ### Calendar Events
 Events have four recurrence types: once, weekly, monthly, yearly. The LLM generates a structured JSON schedule, which is parsed and stored as individual `CalendarEvent` records. The scheduler can also expand recurring events up to 6 months ahead.
 
+### Multilingual Support (i18n)
+The UI supports English and Spanish. Translations live in code at `frontend/lib/i18n/` (`en.ts` is the source of truth; `es.ts` is typed as `typeof en` so a missing key fails `tsc`). A React context (`I18nProvider`/`useI18n` + `t(key, vars)`) resolves strings; `useI18n()` falls back to an English default when no provider is mounted (used in unit tests). The language choice is resolved from `localStorage` (`daisyblue.locale`), then the backend `AppSetting.language` via `GET /api/v1/settings/`, then the browser language. It can be changed on the Settings page (`/settings`), which persists it via `PATCH /api/v1/settings/`. Dates are localized with date-fns locales (`enUS`/`es`). The selected language also drives LLM-generated content: `build_system_prompt(language)` appends a language instruction to the care prompt, so new/`Regenerate Care` runs produce descriptions and event titles in that language. Changing the language does not retro-translate existing content — regenerate per plant.
+
+### Configurable Gardener Persona
+The LLM system prompt (the "gardener") is configurable from the Settings page via `AppSetting.gardener_prompt`. `build_system_prompt(language, gardener_prompt)` uses the custom text when non-empty, otherwise falls back to the default `CARE_SYSTEM_PROMPT` ("professional botanist and gardening expert"). The language instruction is always appended, so the language setting keeps controlling output language. The JSON output contract lives in the user prompts, so a custom persona can never break response parsing.
+
 ---
 
 ## Database Schema
@@ -126,9 +136,27 @@ Events have four recurrence types: once, weekly, monthly, yearly. The LLM genera
 | acknowledged_at | DateTimeField | When acknowledged |
 | next_occurrence_date | DateField | When to notify again |
 
+### AppSetting (singleton)
+Singleton row (pk=1) holding global application settings. Accessed via `AppSetting.current()` / `get_language()` / `set_language()`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | AutoField | Primary key (always 1) |
+| language | CharField(10) | en / es — UI + LLM content language |
+| gardener_prompt | TextField | Custom gardener persona for LLM system prompt (empty = default botanist) |
+| updated_at | DateTimeField | Auto |
+
 ---
 
 ## API Documentation
+
+### Settings
+
+```
+GET    /api/v1/settings/     Get app settings { language, gardener_prompt, updated_at }
+PUT    /api/v1/settings/     Update app settings
+PATCH  /api/v1/settings/     Partially update app settings (e.g. { language: "es", gardener_prompt: "..." })
+```
 
 ### Garden Items
 

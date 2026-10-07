@@ -1,25 +1,43 @@
 from abc import ABC, abstractmethod
+import base64
 import logging
+import mimetypes
 import requests
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 
+class VisionNotSupportedError(Exception):
+    """Raised when an image is sent to a provider that cannot process images."""
+    pass
+
+
 class BaseLLMProvider(ABC):
     @abstractmethod
-    def generate(self, prompt: str, system: str | None = None) -> str:
+    def generate(self, prompt: str, system: str | None = None, image_path: str | None = None) -> str:
         pass
 
 
 class OpenAIProvider(BaseLLMProvider):
-    def generate(self, prompt: str, system: str | None = None) -> str:
+    def generate(self, prompt: str, system: str | None = None, image_path: str | None = None) -> str:
         from openai import OpenAI
         client = OpenAI(api_key=settings.LLM_API_KEY)
+        if image_path is not None:
+            content = [{'type': 'text', 'text': prompt}]
+            with open(image_path, 'rb') as f:
+                image_b64 = base64.b64encode(f.read()).decode('ascii')
+            mime = mimetypes.guess_type(image_path)[0] or 'image/jpeg'
+            content.append({
+                'type': 'image_url',
+                'image_url': {'url': f'data:{mime};base64,{image_b64}'},
+            })
+        else:
+            content = prompt
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
+        messages.append({"role": "user", "content": content})
         response = client.chat.completions.create(
             model=settings.LLM_MODEL,
             messages=messages,
@@ -28,7 +46,9 @@ class OpenAIProvider(BaseLLMProvider):
 
 
 class AnthropicProvider(BaseLLMProvider):
-    def generate(self, prompt: str, system: str | None = None) -> str:
+    def generate(self, prompt: str, system: str | None = None, image_path: str | None = None) -> str:
+        if image_path is not None:
+            raise VisionNotSupportedError("Anthropic provider does not support image input yet")
         import anthropic
         client = anthropic.Anthropic(api_key=settings.LLM_API_KEY)
         kwargs = {
@@ -43,7 +63,9 @@ class AnthropicProvider(BaseLLMProvider):
 
 
 class OllamaProvider(BaseLLMProvider):
-    def generate(self, prompt: str, system: str | None = None) -> str:
+    def generate(self, prompt: str, system: str | None = None, image_path: str | None = None) -> str:
+        if image_path is not None:
+            raise VisionNotSupportedError("Ollama provider does not support image input yet")
         base_url = settings.OLLAMA_BASE_URL
         payload = {
             "model": settings.LLM_MODEL,

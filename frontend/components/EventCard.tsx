@@ -5,6 +5,8 @@ import { Trash2, X, Check } from 'lucide-react'
 import type { CalendarEvent } from '@/lib/types'
 import { EventTypeIcon } from './EventTypeIcon'
 import { formatDate } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
+import type { TKey } from '@/lib/i18n/en'
 
 interface EventCardProps {
   event: CalendarEvent
@@ -12,6 +14,7 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, onDelete }: EventCardProps) {
+  const { t, locale } = useI18n()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -35,22 +38,22 @@ export function EventCard({ event, onDelete }: EventCardProps) {
           </p>
         )}
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-gray-400">{formatDate(event.date)}</span>
+          <span className="text-xs text-gray-400">{formatDate(event.date, locale)}</span>
           <span className="text-xs text-gray-300">·</span>
-          <span className="text-xs text-gray-400 capitalize">{event.recurrence}</span>
+          <span className="text-xs text-gray-400">{t(`recurrences.${event.recurrence}` as TKey)}</span>
           {event.is_manual && (
             <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 font-medium">
-              Manual
+              {t('eventCard.manual')}
             </span>
           )}
           {event.end_date && (
             <>
               <span className="text-xs text-gray-300">·</span>
               <span className="text-xs text-gray-400">
-                until {formatDate(event.end_date)}
+                {t('eventCard.until', { date: formatDate(event.end_date, locale) })}
               </span>
             </>
-            )}
+          )}
         </div>
       </div>
 
@@ -61,14 +64,14 @@ export function EventCard({ event, onDelete }: EventCardProps) {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                title="Confirm delete"
+                title={t('eventCard.confirmDelete')}
                 className="p-2.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900 transition-colors disabled:opacity-50"
               >
                 <Check className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setConfirming(false)}
-                title="Cancel"
+                title={t('common.cancel')}
                 className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
@@ -77,7 +80,7 @@ export function EventCard({ event, onDelete }: EventCardProps) {
           ) : (
             <button
               onClick={() => setConfirming(true)}
-              title="Delete event"
+              title={t('eventCard.deleteEvent')}
               className="p-2.5 rounded-lghover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-all"
             >
               <Trash2 className="w-3.5 h-3.5" />

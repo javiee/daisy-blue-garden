@@ -5,9 +5,11 @@ import { Plus, Leaf } from 'lucide-react'
 import { useGardenItems } from '@/lib/hooks'
 import { GardenCard } from '@/components/GardenCard'
 import { LoadingSkeleton } from '@/components/LoadingSkeleton'
+import { useI18n } from '@/lib/i18n'
 
 export default function HomePage() {
   const { data, isLoading, error } = useGardenItems()
+  const { t } = useI18n()
 
   return (
     <div className="space-y-8">
@@ -19,10 +21,10 @@ export default function HomePage() {
           </div>
         </div>
         <h1 className="text-4xl font-bold text-green-800 dark:text-green-200 mb-2">
-          My Garden
+          {t('garden.title')}
         </h1>
         <p className="text-green-600 dark:text-green-400 text-lg">
-          Your personal garden management companion
+          {t('garden.subtitle')}
         </p>
       </div>
 
@@ -33,7 +35,7 @@ export default function HomePage() {
           className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-full font-semibold shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5"
         >
           <Plus className="w-5 h-5" />
-          Add Plant
+          {t('garden.addPlant')}
         </Link>
       </div>
 
@@ -48,8 +50,8 @@ export default function HomePage() {
 
       {error && (
         <div className="text-center py-16">
-          <p className="text-red-500 text-lg">Failed to load garden items.</p>
-          <p className="text-gray-500 text-sm mt-2">Make sure the backend is running.</p>
+          <p className="text-red-500 text-lg">{t('garden.loadError')}</p>
+          <p className="text-gray-500 text-sm mt-2">{t('garden.loadErrorHint')}</p>
         </div>
       )}
 
@@ -57,17 +59,17 @@ export default function HomePage() {
         <div className="text-center py-24">
           <div className="text-8xl mb-6">🌱</div>
           <h2 className="text-2xl font-semibold text-green-700 dark:text-green-300 mb-3">
-            Your garden is empty
+            {t('garden.emptyTitle')}
           </h2>
           <p className="text-green-600 dark:text-green-400 mb-8 text-lg">
-            Add your first plant or tree to get started!
+            {t('garden.emptyText')}
           </p>
           <Link
             href="/garden/new"
             className="inline-flex items-center gap-2 px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-full font-semibold shadow-lg text-lg transition-all"
           >
             <Plus className="w-6 h-6" />
-            Add your first plant
+            {t('garden.emptyCta')}
           </Link>
         </div>
       )}

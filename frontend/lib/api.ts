@@ -1,12 +1,21 @@
 import type {
+  AppSettings,
   GardenItem,
   CalendarEvent,
   Notification,
   NotificationConfig,
   PaginatedResponse,
+  PlantIdentification,
 } from './types'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+// No fixed host: the API runs on this same machine (port 8000), so call it
+// via whatever hostname the app was loaded from (works on LAN phones too,
+// and survives the Mac's DHCP IP changing). NEXT_PUBLIC_API_URL overrides.
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined'
+    ? `http://${window.location.hostname}:8000/api/v1`
+    : 'http://localhost:8000/api/v1')
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -91,6 +100,26 @@ export const api = {
     generateCare: (itemId: number) =>
       request<{ task_id: string; status: string }>(`/llm/generate-care/${itemId}/`, {
         method: 'POST',
+      }),
+    identifyUpload: (photo: File) => {
+      const form = new FormData()
+      form.append('photo', photo)
+      return fetch(`${API_BASE}/llm/identify/`, { method: 'POST', body: form }).then((r) => {
+        if (!r.ok) throw new Error('Failed to upload photo for identification')
+        return r.json() as Promise<PlantIdentification>
+      })
+    },
+    identification: (id: number) => request<PlantIdentification>(`/llm/identify/${id}/`),
+    deleteIdentification: (id: number) =>
+      request<void>(`/llm/identify/${id}/`, { method: 'DELETE' }),
+  },
+
+  settings: {
+    get: () => request<AppSettings>('/settings/'),
+    save: (data: Partial<AppSettings>) =>
+      request<AppSettings>('/settings/', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
       }),
   },
 }

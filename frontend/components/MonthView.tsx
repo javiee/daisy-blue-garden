@@ -1,5 +1,21 @@
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, format, parseISO } from 'date-fns'
+'use client'
+
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  format,
+  parseISO,
+  addDays,
+} from 'date-fns'
+import { es as esLocale } from 'date-fns/locale'
 import type { CalendarEvent } from '@/lib/types'
+import { useI18n } from '@/lib/i18n'
+import type { TKey } from '@/lib/i18n/en'
 
 const EVENT_COLORS: Record<string, string> = {
   watering: 'bg-blue-400',
@@ -14,18 +30,24 @@ interface Props {
 }
 
 export function MonthView({ events, currentDate }: Props) {
+  const { t, locale } = useI18n()
+  const dfLocale = locale === 'es' ? esLocale : undefined
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd })
+  const dayHeaders = Array.from(
+    { length: 7 },
+    (_, i) => format(addDays(gridStart, i), 'EEE', { locale: dfLocale })
+  )
 
   return (
     <div className="overflow-x-auto">
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow overflow-hidden min-w-[320px]">
         {/* Day headers */}
         <div className="grid grid-cols-7 border-b border-gray-100 dark:border-slate-700">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+          {dayHeaders.map((d) => (
             <div key={d} className="text-center py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">
               {d}
             </div>
@@ -45,7 +67,7 @@ export function MonthView({ events, currentDate }: Props) {
                 className={`min-h-24 p-2 border-b border-r border-gray-100 dark:border-slate-700 ${!isCurrentMonth ? 'opacity-30' : ''}`}
               >
                 <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium mb-1 ${isToday ? 'bg-green-600 text-white' : 'text-gray-700 dark:text-gray-300'}`}>
-                  {format(day, 'd')}
+                  {format(day, 'd', { locale: dfLocale })}
                 </div>
                 <div className="space-y-0.5">
                   {dayEvents.slice(0, 3).map((event) => (
@@ -69,7 +91,9 @@ export function MonthView({ events, currentDate }: Props) {
           {Object.entries(EVENT_COLORS).map(([type, color]) => (
             <div key={type} className="flex items-center gap-1.5">
               <div className={`w-3 h-3 rounded-full ${color}`} />
-              <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">{type}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {t(`eventTypes.${type}` as TKey)}
+              </span>
             </div>
           ))}
         </div>

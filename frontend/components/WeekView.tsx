@@ -1,6 +1,10 @@
+'use client'
+
 import { startOfWeek, addDays, format, isSameDay, parseISO } from 'date-fns'
+import { es as esLocale } from 'date-fns/locale'
 import type { CalendarEvent } from '@/lib/types'
 import { EventTypeIcon } from './EventTypeIcon'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   events: CalendarEvent[]
@@ -8,6 +12,8 @@ interface Props {
 }
 
 export function WeekView({ events, currentDate }: Props) {
+  const { locale } = useI18n()
+  const dfLocale = locale === 'es' ? esLocale : undefined
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
@@ -20,8 +26,8 @@ export function WeekView({ events, currentDate }: Props) {
           return (
             <div key={day.toISOString()} className="min-h-32">
               <div className={`text-center py-2 rounded-t-lg text-sm font-medium ${isToday ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400'}`}>
-                <div>{format(day, 'EEE')}</div>
-                <div className="text-lg font-bold">{format(day, 'd')}</div>
+                <div>{format(day, 'EEE', { locale: dfLocale })}</div>
+                <div className="text-lg font-bold">{format(day, 'd', { locale: dfLocale })}</div>
               </div>
               <div className="space-y-1 p-1 bg-white dark:bg-slate-800 rounded-b-lg min-h-24 border border-gray-100 dark:border-slate-700">
                 {dayEvents.map((event) => (

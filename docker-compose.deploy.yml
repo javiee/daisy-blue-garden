@@ -1,0 +1,43 @@
+# Deployment compose for the javi server (192.168.10.65).
+# Lives at ~/www-sites/gardener/ on the server, deployed via ./deploy.sh.
+# Stack: backend (gunicorn) + qcluster (django-q worker, DB-backed) + frontend.
+# No Redis: tasks are queued in MySQL via django-q.
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Uploaded photos persist on the host, independent of containers/volumes.
+      - ./images:/app/media
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+    env_file: .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8000/api/v1/settings/', timeout=3); sys.exit(0 if r.status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  qcluster:
+    build: ./backend
+    entrypoint: []
+    command: python manage.py qcluster
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+    env_file: .env
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

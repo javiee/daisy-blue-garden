@@ -1,14 +1,18 @@
+'use client'
+
 import Link from 'next/link'
 import Image from 'next/image'
 import { Leaf } from 'lucide-react'
 import type { GardenItem } from '@/lib/types'
 import { TypeBadge } from './TypeBadge'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   item: GardenItem
 }
 
 export function GardenCard({ item }: Props) {
+  const { t } = useI18n()
   return (
     <Link href={`/garden/${item.id}`} className="group block">
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow hover:shadow-xl transition-all duration-300 overflow-hidden hover:-translate-y-1">
@@ -42,7 +46,7 @@ export function GardenCard({ item }: Props) {
             </p>
           ) : (
             <p className="text-gray-400 dark:text-gray-500 text-sm italic">
-              Generating care guide...
+              {t('garden.generatingCare')}
             </p>
           )}
         </div>

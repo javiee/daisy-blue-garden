@@ -2,6 +2,18 @@ CARE_SYSTEM_PROMPT = """You are a professional botanist and gardening expert.
 Provide accurate, practical gardening advice tailored to the specific plant or tree.
 Always be specific, actionable, and use metric measurements where applicable."""
 
+LANGUAGE_INSTRUCTIONS = {
+    'en': "Write all generated text (descriptions, care guides, event titles and instructions) in English.",
+    'es': "Write all generated text (descriptions, care guides, event titles and instructions) in Spanish (español).",
+}
+
+
+def build_system_prompt(language: str, gardener_prompt: str = '') -> str:
+    persona = gardener_prompt.strip() or CARE_SYSTEM_PROMPT
+    return persona + "\n\n" + LANGUAGE_INSTRUCTIONS.get(
+        language, LANGUAGE_INSTRUCTIONS['en']
+    )
+
 CARE_DESCRIPTION_PROMPT = """Provide a description and basic care guide for a {item_type} called "{item_name}".
 
 Return your response in the following JSON format:
@@ -9,6 +21,22 @@ Return your response in the following JSON format:
   "description": "A 2-3 sentence description of the plant/tree including its characteristics and origin.",
   "cares": "A concise care guide covering: watering frequency, sunlight needs, soil type, temperature range, and any special requirements."
 }}
+
+Return only valid JSON, no additional text."""
+
+PLANT_IDENTIFICATION_PROMPT = """Look carefully at the attached photo and identify the plant or tree in it.
+
+If you can identify it, give its common name. If you are not sure, give your best guess.
+
+Return your response in the following JSON format:
+{{
+  "name": "The common name of the plant or tree.",
+  "type": "One of: plant, tree, shrub, other.",
+  "description": "A 2-3 sentence description of the plant/tree including its characteristics and origin.",
+  "cares": "A concise care guide covering: watering frequency, sunlight needs, soil type, temperature range, and any special requirements."
+}}
+
+If the photo does not clearly show a plant, still return valid JSON with your best guess for name (or an empty string if nothing is visible) and brief description/cares.
 
 Return only valid JSON, no additional text."""
 

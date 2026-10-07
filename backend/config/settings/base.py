@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'django_filters',
     'django_q',
     # Local
+    'apps.core',
     'apps.garden',
     'apps.events',
     'apps.llm',

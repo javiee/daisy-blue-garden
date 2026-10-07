@@ -3,16 +3,19 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns'
+import { enUS as enLocale, es as esLocale } from 'date-fns/locale'
 import { useCalendarEvents } from '@/lib/hooks'
 import { WeekView } from '@/components/WeekView'
 import { MonthView } from '@/components/MonthView'
 import { getWeekString, getMonthString } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 type ViewMode = 'week' | 'month'
 
 export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [currentDate, setCurrentDate] = useState(new Date())
+  const { t, locale } = useI18n()
 
   const params =
     viewMode === 'week'
@@ -30,15 +33,16 @@ export default function CalendarPage() {
     }
   }
 
+  const dfLocale = locale === 'es' ? esLocale : enLocale
   const title =
     viewMode === 'week'
-      ? `Week of ${format(currentDate, 'MMM d, yyyy')}`
-      : format(currentDate, 'MMMM yyyy')
+      ? t('calendar.weekOf', { date: format(currentDate, 'MMM d, yyyy', { locale: dfLocale }) })
+      : format(currentDate, 'MMMM yyyy', { locale: dfLocale })
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">Calendar</h1>
+        <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">{t('calendar.title')}</h1>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg overflow-hidden border border-green-200 dark:border-green-700">
             <button
@@ -49,7 +53,7 @@ export default function CalendarPage() {
                   : 'bg-white dark:bg-slate-800 text-green-700 dark:text-green-300 hover:bg-green-50'
               }`}
             >
-              Week
+               {t('calendar.week')}
             </button>
             <button
               onClick={() => setViewMode('month')}
@@ -59,7 +63,7 @@ export default function CalendarPage() {
                   : 'bg-white dark:bg-slate-800 text-green-700 dark:text-green-300 hover:bg-green-50'
               }`}
             >
-              Month
+               {t('calendar.month')}
             </button>
           </div>
         </div>

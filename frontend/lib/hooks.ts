@@ -10,11 +10,12 @@ export function useGardenItems(params?: Record<string, string>) {
   })
 }
 
-export function useGardenItem(id: number) {
+export function useGardenItem(id: number, refetchInterval?: number | false) {
   return useQuery({
     queryKey: ['garden', id],
     queryFn: () => api.garden.get(id),
     enabled: !!id,
+    refetchInterval,
   })
 }
 
@@ -128,8 +129,49 @@ export function useGenerateCare() {
   })
 }
 
+export function useIdentifyPlant() {
+  return useMutation({
+    mutationFn: (photo: File) => api.llm.identifyUpload(photo),
+  })
+}
+
+export function useIdentification(id: number | null) {
+  // Poll every 3s while the LLM is working; stop once complete or failed.
+  // retry: false — a record deleted by the cleanup path 404s; retrying
+  // those just adds log noise.
+  return useQuery({
+    queryKey: ['identification', id],
+    queryFn: () => api.llm.identification(id!),
+    enabled: !!id,
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'pending' ? 3000 : false,
+  })
+}
+
+export function useDeleteIdentification() {
+  return useMutation({
+    mutationFn: (id: number) => api.llm.deleteIdentification(id),
+  })
+}
+
 export function useSendTestNotification() {
   return useMutation({
     mutationFn: (id: number) => api.notifications.testNotification(id),
+  })
+}
+
+export function useAppSettings() {
+  return useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.settings.get(),
+  })
+}
+
+export function useSaveAppSettings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Partial<import('./types').AppSettings>) => api.settings.save(data),
+    onSuccess: (updated) => qc.setQueryData(['settings'], updated),
   })
 }

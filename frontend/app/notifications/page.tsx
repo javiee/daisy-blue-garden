@@ -5,13 +5,17 @@ import { Bell, Settings } from 'lucide-react'
 import { useNotifications, useAcknowledgeNotification, useNotificationConfig, useSendTestNotification  } from '@/lib/hooks'
 import { NotificationItem } from '@/components/NotificationItem'
 import { api } from '@/lib/api'
+import { useI18n } from '@/lib/i18n'
 import type { NotificationFrequency } from '@/lib/types'
+
+const FREQUENCIES: NotificationFrequency[] = ['daily', 'weekly', 'monthly']
 
 export default function NotificationsPage() {
   const { data: notifData, isLoading } = useNotifications()
   const { data: configData } = useNotificationConfig()
   const acknowledge = useAcknowledgeNotification()
   const testNotification = useSendTestNotification()
+  const { t } = useI18n()
 
   const [chatId, setChatId] = useState('')
   const [frequency, setFrequency] = useState<NotificationFrequency>('weekly')
@@ -36,7 +40,7 @@ export default function NotificationsPage() {
     <div className="max-w-3xl mx-auto space-y-8">
       <div className="flex items-center gap-3">
         <Bell className="w-8 h-8 text-green-600" />
-        <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">Notifications</h1>
+        <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">{t('notifications.title')}</h1>
       </div>
 
       {/* Config section */}
@@ -44,44 +48,50 @@ export default function NotificationsPage() {
         <div className="flex items-center gap-2 mb-4">
           <Settings className="w-5 h-5 text-green-600" />
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-            Telegram Settings
+            {t('notifications.telegramSettings')}
           </h2>
         </div>
         {config && (
           <p className="text-sm text-green-600 dark:text-green-400">
-            Current: Chat {config.telegram_chat_id} · {config.frequency} · {config.days_before} days before
+            {t('notifications.currentConfig', {
+              chatId: config.telegram_chat_id,
+              frequency: t(`frequencies.${config.frequency}` as 'frequencies.daily'),
+              daysBefore: config.days_before,
+            })}
           </p>
         )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Telegram Chat ID
+              {t('notifications.chatIdLabel')}
             </label>
             <input
               type="text"
               value={chatId}
               onChange={(e) => setChatId(e.target.value)}
-              placeholder="e.g. 123456789"
+              placeholder={t('notifications.chatIdPlaceholder')}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 text-sm"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Frequency
+              {t('notifications.frequencyLabel')}
             </label>
             <select
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as NotificationFrequency)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 text-sm"
             >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
+              {FREQUENCIES.map((f) => (
+                <option key={f} value={f}>
+                  {t(`frequencies.${f}` as 'frequencies.daily')}
+                </option>
+              ))}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Days Before
+              {t('notifications.daysBeforeLabel')}
             </label>
             <input
               type="number"
@@ -98,7 +108,7 @@ export default function NotificationsPage() {
           disabled={saving || !chatId}
           className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
         >
-          {saving ? 'Saving...' : 'Save Settings'}
+          {saving ? t('common.saving') : t('notifications.saveSettings')}
         </button>
         <div className="flex items-center gap-3">
           <button
@@ -106,24 +116,24 @@ export default function NotificationsPage() {
             disabled={saving || !chatId}
             className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
-            {saving ? 'Saving...' : 'Save Settings'}
+            {saving ? t('common.saving') : t('notifications.saveSettings')}
           </button>
           <button
             onClick={() => config && testNotification.mutate(config.id)}
             disabled={!config || testNotification.isPending}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
-            {testNotification.isPending ? 'Sending...' : 'Send Test Notification'}
+            {testNotification.isPending ? t('notifications.sending') : t('notifications.sendTest')}
           </button>
         </div>
         {testNotification.isSuccess && (
           <p className="text-sm text-green-600 dark:text-green-400">
-            Test message sent successfully.
+            {t('notifications.testSuccess')}
           </p>
         )}
         {testNotification.isError && (
           <p className="text-sm text-red-600 dark:text-red-400">
-            {(testNotification.error as Error)?.message || 'Failed to send test notification.'}
+            {(testNotification.error as Error)?.message || t('notifications.testError')}
           </p>
         )}
       </div>
@@ -131,13 +141,13 @@ export default function NotificationsPage() {
       {/* Pending */}
       <div>
         <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
-          Pending ({pending.length})
+          {t('notifications.pending', { count: pending.length })}
         </h2>
         {isLoading ? (
-          <p className="text-gray-400">Loading...</p>
+          <p className="text-gray-400">{t('common.loading')}</p>
         ) : pending.length === 0 ? (
           <div className="text-center py-8 bg-white dark:bg-slate-800 rounded-2xl shadow">
-            <p className="text-gray-400">No pending notifications 🎉</p>
+            <p className="text-gray-400">{t('notifications.noPending')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -157,7 +167,7 @@ export default function NotificationsPage() {
       {acknowledged.length > 0 && (
         <div>
           <h2 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-4">
-            Acknowledged ({acknowledged.length})
+            {t('notifications.acknowledged', { count: acknowledged.length })}
           </h2>
           <div className="space-y-3 opacity-60">
             {acknowledged.slice(0, 10).map((notif) => (
