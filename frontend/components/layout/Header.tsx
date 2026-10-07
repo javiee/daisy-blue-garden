@@ -1,7 +1,11 @@
+'use client'
+
 import Link from 'next/link'
 import { Flower2 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 export function Header() {
+  const { t } = useI18n()
   return (
     <header className="bg-white dark:bg-slate-900 border-b border-green-100 dark:border-slate-700 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
@@ -17,7 +21,7 @@ export function Header() {
           </div>
         </Link>
         <div className="hidden sm:block text-sm text-green-600 dark:text-green-400">
-          AI-powered garden care
+          {t('header.tagline')}
         </div>
       </div>
     </header>

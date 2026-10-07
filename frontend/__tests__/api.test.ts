@@ -63,6 +63,53 @@ describe('api.notifications', () => {
   })
 })
 
+describe('api.llm', () => {
+  it('uploads a photo for identification', async () => {
+    mockFetch.mockResolvedValue(
+      mockResponse({ id: 7, status: 'pending', name: '' }, 201)
+    )
+    const file = new File(['bytes'], 'photo.jpg', { type: 'image/jpeg' })
+    const result = await api.llm.identifyUpload(file)
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/llm/identify/'),
+      expect.objectContaining({ method: 'POST', body: expect.any(FormData) })
+    )
+    expect(result.id).toBe(7)
+    expect(result.status).toBe('pending')
+  })
+
+  it('uploads photo as multipart form field named photo', async () => {
+    mockFetch.mockResolvedValue(
+      mockResponse({ id: 7, status: 'pending', name: '' }, 201)
+    )
+    const file = new File(['bytes'], 'photo.jpg', { type: 'image/jpeg' })
+    await api.llm.identifyUpload(file)
+    const form = mockFetch.mock.calls[0][1].body as FormData
+    expect(form.get('photo')).toBeInstanceOf(File)
+  })
+
+  it('fetches identification status', async () => {
+    mockFetch.mockResolvedValue(
+      mockResponse({ id: 7, status: 'complete', name: 'Rose' })
+    )
+    const result = await api.llm.identification(7)
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/llm/identify/7/'),
+      expect.any(Object)
+    )
+    expect(result.name).toBe('Rose')
+  })
+
+  it('deletes an identification', async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 204 })
+    await api.llm.deleteIdentification(7)
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/llm/identify/7/'),
+      expect.objectContaining({ method: 'DELETE' })
+    )
+  })
+})
+
 describe('api.events', () => {
   it('lists events filtered by week', async () => {
     mockFetch.mockResolvedValue(mockResponse({ results: [], count: 0 }))

@@ -123,7 +123,7 @@ Notification marked as acknowledged, suppressed until next occurrence
 
 ### Backend (Django)
 
-The backend is a Django 5 project with four apps, each owning a specific domain:
+The backend is a Django 5 project with five apps, each owning a specific domain:
 
 #### `apps/garden` — Plant & Tree Management
 
@@ -178,6 +178,12 @@ Manages when and how reminders are sent, and tracks acknowledgements.
   - `check_and_send_notifications()` — run on schedule by Celery Beat. For each active `NotificationConfig`, finds upcoming `CalendarEvent`s within `days_before` days, skips ones already notified, and enqueues `send_event_notification` for each.
   - `send_event_notification(event_id, config_id)` — creates a `Notification` record, sends the Telegram message, and updates the status.
 - **Acknowledge logic:** When a user acknowledges a notification, the app calculates `next_occurrence_date` based on the event's recurrence (e.g. weekly → today + 7 days). The scheduler skips this event until that date passes.
+
+#### `apps/core` — Global Settings
+
+- **Model:** `AppSetting` is a singleton row (pk=1) holding global settings. Currently it stores `language` (`en`/`es`), which drives both the UI language and the language of LLM-generated content.
+- **API:** `GET`/`PUT`/`PATCH /api/v1/settings/` read and update the singleton. A data migration seeds the default row with `language='en'`.
+- **i18n:** The frontend stores the user's language preference in `localStorage` (`daisyblue.locale`), falling back to this setting, then to the browser language. The LLM task (`apps/llm/tasks.py`) reads `AppSetting.get_language()` and passes it to `build_system_prompt(language)`, so newly generated descriptions and event titles come back in the selected language. Existing content is not retro-translated — use "Regenerate Care" per plant.
 
 ---
 
@@ -278,6 +284,7 @@ Built with Next.js 15 App Router, TypeScript, and Tailwind CSS v4.
 | `/garden/[id]` | Plant detail: description, care guide, event list, regenerate button |
 | `/calendar` | Week/Month calendar view with navigation |
 | `/notifications` | Notification inbox + Telegram settings |
+| `/settings` | App settings — UI/AI language selector (English / Español) |
 
 #### State Management
 
@@ -446,6 +453,14 @@ The Celery Beat schedule for notifications is stored in MySQL via `django-celery
 ---
 
 ## API Reference
+
+### Settings
+
+```
+GET    /api/v1/settings/   → { language: "en" | "es", updated_at }
+PUT    /api/v1/settings/   → AppSetting
+PATCH  /api/v1/settings/   → AppSetting  (e.g. { language: "es" })
+```
 
 ### Garden Items
 
@@ -886,6 +901,8 @@ daisy-blue-garden/
     │   │   └── page.tsx         # /calendar → Week/month view
     │   └── notifications/
     │       └── page.tsx         # /notifications → Inbox + settings
+    │   └── settings/
+    │       └── page.tsx         # /settings → Language selector
     │
     ├── components/              # Reusable UI components
     │   ├── Providers.tsx        # React Query provider wrapper

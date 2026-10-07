@@ -9,4 +9,5 @@ urlpatterns = [
     path('api/v1/events/', include('apps.events.urls')),
     path('api/v1/llm/', include('apps.llm.urls')),
     path('api/v1/notifications/', include('apps.notifications.urls')),
+    path('api/v1/settings/', include('apps.core.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

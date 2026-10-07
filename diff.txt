@@ -1,0 +1,2011 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index ebb327c..dcf504e 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -25,6 +25,10 @@ DaisyBlue Gardener is an AI-powered garden administration application that helps
+ │  │  garden  │  │  events  │  │    llm     │  │ notifs   │ │
+ │  │   app    │  │   app    │  │    app     │  │   app    │ │
+ │  └──────────┘  └──────────┘  └────────────┘  └──────────┘ │
++│  ┌──────────┐                                               │
++│  │  core    │  AppSetting (singleton: language)             │
++│  │   app    │                                               │
++│  └──────────┘                                               │
+ │                   Celery + Redis (async tasks)              │
+ └──────┬──────────────────────────┬───────────────────────────┘
+        │                          │
+@@ -76,6 +80,12 @@ Celery Beat runs the `check_and_send_notifications` task on a configurable sched
+ ### Calendar Events
+ Events have four recurrence types: once, weekly, monthly, yearly. The LLM generates a structured JSON schedule, which is parsed and stored as individual `CalendarEvent` records. The scheduler can also expand recurring events up to 6 months ahead.
+ 
++### Multilingual Support (i18n)
++The UI supports English and Spanish. Translations live in code at `frontend/lib/i18n/` (`en.ts` is the source of truth; `es.ts` is typed as `typeof en` so a missing key fails `tsc`). A React context (`I18nProvider`/`useI18n` + `t(key, vars)`) resolves strings; `useI18n()` falls back to an English default when no provider is mounted (used in unit tests). The language choice is resolved from `localStorage` (`daisyblue.locale`), then the backend `AppSetting.language` via `GET /api/v1/settings/`, then the browser language. It can be changed on the Settings page (`/settings`), which persists it via `PATCH /api/v1/settings/`. Dates are localized with date-fns locales (`enUS`/`es`). The selected language also drives LLM-generated content: `build_system_prompt(language)` appends a language instruction to the care prompt, so new/`Regenerate Care` runs produce descriptions and event titles in that language. Changing the language does not retro-translate existing content — regenerate per plant.
++
++### Configurable Gardener Persona
++The LLM system prompt (the "gardener") is configurable from the Settings page via `AppSetting.gardener_prompt`. `build_system_prompt(language, gardener_prompt)` uses the custom text when non-empty, otherwise falls back to the default `CARE_SYSTEM_PROMPT` ("professional botanist and gardening expert"). The language instruction is always appended, so the language setting keeps controlling output language. The JSON output contract lives in the user prompts, so a custom persona can never break response parsing.
++
+ ---
+ 
+ ## Database Schema
+@@ -126,10 +136,28 @@ Events have four recurrence types: once, weekly, monthly, yearly. The LLM genera
+ | acknowledged_at | DateTimeField | When acknowledged |
+ | next_occurrence_date | DateField | When to notify again |
+ 
++### AppSetting (singleton)
++Singleton row (pk=1) holding global application settings. Accessed via `AppSetting.current()` / `get_language()` / `set_language()`.
++
++| Field | Type | Description |
++|-------|------|-------------|
++| id | AutoField | Primary key (always 1) |
++| language | CharField(10) | en / es — UI + LLM content language |
++| gardener_prompt | TextField | Custom gardener persona for LLM system prompt (empty = default botanist) |
++| updated_at | DateTimeField | Auto |
++
+ ---
+ 
+ ## API Documentation
+ 
++### Settings
++
++```
++GET    /api/v1/settings/     Get app settings { language, gardener_prompt, updated_at }
++PUT    /api/v1/settings/     Update app settings
++PATCH  /api/v1/settings/     Partially update app settings (e.g. { language: "es", gardener_prompt: "..." })
++```
++
+ ### Garden Items
+ 
+ ```
+diff --git a/PROJECT.md b/PROJECT.md
+index c5317a9..4be06fb 100644
+--- a/PROJECT.md
++++ b/PROJECT.md
+@@ -123,7 +123,7 @@ Notification marked as acknowledged, suppressed until next occurrence
+ 
+ ### Backend (Django)
+ 
+-The backend is a Django 5 project with four apps, each owning a specific domain:
++The backend is a Django 5 project with five apps, each owning a specific domain:
+ 
+ #### `apps/garden` — Plant & Tree Management
+ 
+@@ -179,6 +179,12 @@ Manages when and how reminders are sent, and tracks acknowledgements.
+   - `send_event_notification(event_id, config_id)` — creates a `Notification` record, sends the Telegram message, and updates the status.
+ - **Acknowledge logic:** When a user acknowledges a notification, the app calculates `next_occurrence_date` based on the event's recurrence (e.g. weekly → today + 7 days). The scheduler skips this event until that date passes.
+ 
++#### `apps/core` — Global Settings
++
++- **Model:** `AppSetting` is a singleton row (pk=1) holding global settings. Currently it stores `language` (`en`/`es`), which drives both the UI language and the language of LLM-generated content.
++- **API:** `GET`/`PUT`/`PATCH /api/v1/settings/` read and update the singleton. A data migration seeds the default row with `language='en'`.
++- **i18n:** The frontend stores the user's language preference in `localStorage` (`daisyblue.locale`), falling back to this setting, then to the browser language. The LLM task (`apps/llm/tasks.py`) reads `AppSetting.get_language()` and passes it to `build_system_prompt(language)`, so newly generated descriptions and event titles come back in the selected language. Existing content is not retro-translated — use "Regenerate Care" per plant.
++
+ ---
+ 
+ ### LLM Integration
+@@ -278,6 +284,7 @@ Built with Next.js 15 App Router, TypeScript, and Tailwind CSS v4.
+ | `/garden/[id]` | Plant detail: description, care guide, event list, regenerate button |
+ | `/calendar` | Week/Month calendar view with navigation |
+ | `/notifications` | Notification inbox + Telegram settings |
++| `/settings` | App settings — UI/AI language selector (English / Español) |
+ 
+ #### State Management
+ 
+@@ -447,6 +454,14 @@ The Celery Beat schedule for notifications is stored in MySQL via `django-celery
+ 
+ ## API Reference
+ 
++### Settings
++
++```
++GET    /api/v1/settings/   → { language: "en" | "es", updated_at }
++PUT    /api/v1/settings/   → AppSetting
++PATCH  /api/v1/settings/   → AppSetting  (e.g. { language: "es" })
++```
++
+ ### Garden Items
+ 
+ ```
+@@ -886,6 +901,8 @@ daisy-blue-garden/
+     │   │   └── page.tsx         # /calendar → Week/month view
+     │   └── notifications/
+     │       └── page.tsx         # /notifications → Inbox + settings
++    │   └── settings/
++    │       └── page.tsx         # /settings → Language selector
+     │
+     ├── components/              # Reusable UI components
+     │   ├── Providers.tsx        # React Query provider wrapper
+diff --git a/backend/apps/llm/prompts.py b/backend/apps/llm/prompts.py
+index 31ddb14..324684f 100644
+--- a/backend/apps/llm/prompts.py
++++ b/backend/apps/llm/prompts.py
+@@ -2,6 +2,18 @@ CARE_SYSTEM_PROMPT = """You are a professional botanist and gardening expert.
+ Provide accurate, practical gardening advice tailored to the specific plant or tree.
+ Always be specific, actionable, and use metric measurements where applicable."""
+ 
++LANGUAGE_INSTRUCTIONS = {
++    'en': "Write all generated text (descriptions, care guides, event titles and instructions) in English.",
++    'es': "Write all generated text (descriptions, care guides, event titles and instructions) in Spanish (español).",
++}
++
++
++def build_system_prompt(language: str, gardener_prompt: str = '') -> str:
++    persona = gardener_prompt.strip() or CARE_SYSTEM_PROMPT
++    return persona + "\n\n" + LANGUAGE_INSTRUCTIONS.get(
++        language, LANGUAGE_INSTRUCTIONS['en']
++    )
++
+ CARE_DESCRIPTION_PROMPT = """Provide a description and basic care guide for a {item_type} called "{item_name}".
+ 
+ Return your response in the following JSON format:
+diff --git a/backend/apps/llm/service.py b/backend/apps/llm/service.py
+index 5c6bcf3..8605123 100644
+--- a/backend/apps/llm/service.py
++++ b/backend/apps/llm/service.py
+@@ -3,9 +3,9 @@ import logging
+ import re
+ from .providers import get_llm_provider
+ from .prompts import (
+-    CARE_SYSTEM_PROMPT,
+     CARE_DESCRIPTION_PROMPT,
+     CARE_SCHEDULE_PROMPT,
++    build_system_prompt,
+ )
+ 
+ logger = logging.getLogger(__name__)
+@@ -43,8 +43,10 @@ def _parse_json_response(response: str, context: str) -> tuple[any, str | None]:
+ 
+ 
+ class GardenLLMService:
+-    def __init__(self):
++    def __init__(self, language: str = 'en', gardener_prompt: str = ''):
+         self.provider = get_llm_provider()
++        self.language = language
++        self.system_prompt = build_system_prompt(language, gardener_prompt)
+ 
+     def generate_item_description(self, item_name: str, item_type: str) -> dict:
+         """Returns {'description': str, 'cares': str}"""
+@@ -53,7 +55,7 @@ class GardenLLMService:
+             item_type=item_type,
+         )
+         try:
+-            response = self.provider.generate(prompt, system=CARE_SYSTEM_PROMPT)
++            response = self.provider.generate(prompt, system=self.system_prompt)
+             logger.info(f"LLM description response for {item_name}: {response}")
+             data, error = _parse_json_response(response, f"description of {item_name}")
+             if error:
+@@ -81,7 +83,7 @@ class GardenLLMService:
+             cares=cares,
+         )
+         try:
+-            response = self.provider.generate(prompt, system=CARE_SYSTEM_PROMPT)
++            response = self.provider.generate(prompt, system=self.system_prompt)
+             logger.info(f"LLM description response for {item.name}: {response}")
+             events, error = _parse_json_response(response, f"care schedule for {item.name}")
+             if error:
+diff --git a/backend/apps/llm/tasks.py b/backend/apps/llm/tasks.py
+index 5f08d6a..57b174c 100644
+--- a/backend/apps/llm/tasks.py
++++ b/backend/apps/llm/tasks.py
+@@ -12,6 +12,7 @@ def generate_item_care_async(item_id: int):
+     """
+     from apps.garden.models import GardenItem
+     from apps.events.models import CalendarEvent
++    from apps.core.models import AppSetting
+     from .service import GardenLLMService
+ 
+     try:
+@@ -20,15 +21,20 @@ def generate_item_care_async(item_id: int):
+         logger.error(f"GardenItem {item_id} not found")
+         return
+ 
+-    service = GardenLLMService()
++    setting = AppSetting.current()
++    service = GardenLLMService(
++        language=setting.language,
++        gardener_prompt=setting.gardener_prompt,
++    )
+ 
+     # Generate description and cares
+     result = service.generate_item_description(item.name, item.type)
+     if result['description'] or result['cares']:
+-        GardenItem.objects.filter(pk=item_id).update(
+-            description=result['description'],
+-            cares=result['cares'],
+-        )
++        item.description = result['description']
++        item.cares = result['cares']
++        # Model.save() with explicit updated_at: QuerySet.update() and
++        # update_fields without auto_now fields do not bump updated_at
++        item.save(update_fields=['description', 'cares', 'updated_at'])
+         item.refresh_from_db()
+         logger.info(f"Updated description/cares for {item.name}")
+ 
+diff --git a/backend/apps/llm/tests/test_service.py b/backend/apps/llm/tests/test_service.py
+index 831189f..f18c910 100644
+--- a/backend/apps/llm/tests/test_service.py
++++ b/backend/apps/llm/tests/test_service.py
+@@ -1,7 +1,38 @@
+ import json
+ from unittest.mock import patch, MagicMock
+ from django.test import TestCase
++from apps.core.models import AppSetting
+ from apps.llm.service import GardenLLMService, _strip_markdown_fences
++from apps.llm.prompts import build_system_prompt
++
++
++class BuildSystemPromptTest(TestCase):
++    def test_english_instruction(self):
++        self.assertIn('in English', build_system_prompt('en'))
++
++    def test_spanish_instruction(self):
++        self.assertIn('Spanish', build_system_prompt('es'))
++
++    def test_unknown_language_falls_back_to_english(self):
++        self.assertIn('in English', build_system_prompt('fr'))
++
++    def test_default_persona_used_when_prompt_empty(self):
++        from apps.llm.prompts import CARE_SYSTEM_PROMPT
++        self.assertTrue(build_system_prompt('en', '').startswith(CARE_SYSTEM_PROMPT))
++        self.assertTrue(
++            build_system_prompt('en', '   \n  ').startswith(CARE_SYSTEM_PROMPT)
++        )
++
++    def test_custom_persona_replaces_default(self):
++        custom = 'You are a gardener in Málaga, Mediterranean climate.'
++        prompt = build_system_prompt('en', custom)
++        self.assertTrue(prompt.startswith(custom))
++        self.assertNotIn('professional botanist', prompt)
++
++    def test_custom_persona_still_gets_language_instruction(self):
++        prompt = build_system_prompt('es', 'You are a gardener in Málaga.')
++        self.assertIn('You are a gardener in Málaga.', prompt)
++        self.assertIn('Spanish', prompt)
+ 
+ 
+ class StripMarkdownFencesTest(TestCase):
+@@ -172,3 +203,99 @@ class GardenLLMServiceTest(TestCase):
+         service = GardenLLMService()
+         events = service.generate_care_schedule(mock_item)
+         self.assertEqual(events, [])
++
++
++class GardenLLMServiceLanguageTest(TestCase):
++    @patch('apps.llm.service.get_llm_provider')
++    def test_service_passes_language_to_system_prompt(self, mock_get_provider):
++        mock_provider = MagicMock()
++        mock_provider.generate.return_value = json.dumps({
++            'description': 'Una rosa',
++            'cares': 'Regar a menudo',
++        })
++        mock_get_provider.return_value = mock_provider
++
++        service = GardenLLMService(language='es')
++        service.generate_item_description('Rosa', 'plant')
++
++        system_prompt = mock_provider.generate.call_args.kwargs['system']
++        self.assertIn('Spanish', system_prompt)
++
++    @patch('apps.llm.service.get_llm_provider')
++    def test_service_defaults_to_english(self, mock_get_provider):
++        mock_provider = MagicMock()
++        mock_provider.generate.return_value = json.dumps({
++            'description': 'A rose',
++            'cares': 'Water weekly',
++        })
++        mock_get_provider.return_value = mock_provider
++
++        service = GardenLLMService()
++        service.generate_item_description('Rose', 'plant')
++
++        system_prompt = mock_provider.generate.call_args.kwargs['system']
++        self.assertIn('in English', system_prompt)
++
++    @patch('apps.llm.service.get_llm_provider')
++    def test_service_uses_custom_gardener_prompt(self, mock_get_provider):
++        mock_provider = MagicMock()
++        mock_provider.generate.return_value = json.dumps({
++            'description': 'A rose',
++            'cares': 'Water weekly',
++        })
++        mock_get_provider.return_value = mock_provider
++
++        service = GardenLLMService(
++            language='en',
++            gardener_prompt='You are a gardener in Málaga, Mediterranean climate.',
++        )
++        service.generate_item_description('Rose', 'plant')
++
++        system_prompt = mock_provider.generate.call_args.kwargs['system']
++        self.assertIn('You are a gardener in Málaga, Mediterranean climate.', system_prompt)
++        self.assertNotIn('professional botanist', system_prompt)
++        self.assertIn('in English', system_prompt)
++
++
++class GenerateCareTaskLanguageTest(TestCase):
++    @patch('apps.llm.service.GardenLLMService')
++    def test_task_uses_language_from_app_setting(self, mock_service_cls):
++        from apps.garden.models import GardenItem
++        from apps.llm import tasks
++
++        mock_service_cls.return_value.generate_item_description.return_value = {
++            'description': '',
++            'cares': '',
++        }
++        mock_service_cls.return_value.generate_care_schedule.return_value = []
++
++        AppSetting.set_language('es')
++        item = GardenItem.objects.create(name='Rosa', type='plant')
++
++        tasks.generate_item_care_async(item.pk)
++
++        mock_service_cls.assert_called_once_with(language='es', gardener_prompt='')
++
++    @patch('apps.llm.service.GardenLLMService')
++    def test_task_passes_custom_gardener_prompt(self, mock_service_cls):
++        from apps.garden.models import GardenItem
++        from apps.llm import tasks
++
++        mock_service_cls.return_value.generate_item_description.return_value = {
++            'description': '',
++            'cares': '',
++        }
++        mock_service_cls.return_value.generate_care_schedule.return_value = []
++
++        custom = 'You are a gardener in Málaga, Mediterranean climate.'
++        setting = AppSetting.current()
++        setting.gardener_prompt = custom
++        setting.save(update_fields=['gardener_prompt'])
++
++        item = GardenItem.objects.create(name='Rosa', type='plant')
++
++        tasks.generate_item_care_async(item.pk)
++
++        mock_service_cls.assert_called_once_with(
++            language='en', gardener_prompt=custom
++        )
+diff --git a/backend/config/settings/base.py b/backend/config/settings/base.py
+index c61ad1b..31e125d 100644
+--- a/backend/config/settings/base.py
++++ b/backend/config/settings/base.py
+@@ -27,6 +27,7 @@ INSTALLED_APPS = [
+     'django_filters',
+     'django_q',
+     # Local
++    'apps.core',
+     'apps.garden',
+     'apps.events',
+     'apps.llm',
+diff --git a/backend/config/urls.py b/backend/config/urls.py
+index 42df881..eed872a 100644
+--- a/backend/config/urls.py
++++ b/backend/config/urls.py
+@@ -9,4 +9,5 @@ urlpatterns = [
+     path('api/v1/events/', include('apps.events.urls')),
+     path('api/v1/llm/', include('apps.llm.urls')),
+     path('api/v1/notifications/', include('apps.notifications.urls')),
++    path('api/v1/settings/', include('apps.core.urls')),
+ ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+diff --git a/backend/db.sqlite3 b/backend/db.sqlite3
+index c06fe9a..4a603e6 100644
+Binary files a/backend/db.sqlite3 and b/backend/db.sqlite3 differ
+diff --git a/docker-compose.yml b/docker-compose.yml
+index f5fe416..0b60853 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -1,22 +1,25 @@
+ version: '3.8'
+ 
+-services:
+-  db:
+-    image: mysql:8.0
+-    environment:
+-      MYSQL_DATABASE: daisyblue
+-      MYSQL_USER: daisyblue
+-      MYSQL_PASSWORD: daisyblue_pass
+-      MYSQL_ROOT_PASSWORD: root_pass
+-    volumes:
+-      - mysql_data:/var/lib/mysql
+-    ports:
+-      - "3306:3306"
+-    healthcheck:
+-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+-      timeout: 20s
+-      retries: 10
++# NOTE: using the external MySQL server defined in .env (DATABASE_URL).
++# The local `db` service below is kept commented out for reference.
++# services:
++#   db:
++#     image: mysql:8.0
++#     environment:
++#       MYSQL_DATABASE: daisyblue
++#       MYSQL_USER: daisyblue
++#       MYSQL_PASSWORD: daisyblue_pass
++#       MYSQL_ROOT_PASSWORD: root_pass
++#     volumes:
++#       - mysql_data:/var/lib/mysql
++#     ports:
++#       - "3306:3306"
++#     healthcheck:
++#       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
++#       timeout: 20s
++#       retries: 10
+ 
++services:
+   backend:
+     build: ./backend
+     command: python manage.py runserver 0.0.0.0:8000
+@@ -27,11 +30,7 @@ services:
+       - "8000:8000"
+     environment:
+       - DJANGO_SETTINGS_MODULE=config.settings.dev
+-      - DATABASE_URL=mysql://daisyblue:daisyblue_pass@db:3306/daisyblue
+     env_file: .env
+-    depends_on:
+-      db:
+-        condition: service_healthy
+   frontend:
+     build: ./frontend
+     ports:
+@@ -47,14 +46,11 @@ services:
+       - ./backend:/app
+     environment:
+       - DJANGO_SETTINGS_MODULE=config.settings.dev
+-      - DATABASE_URL=mysql://daisyblue:daisyblue_pass@db:3306/daisyblue
+     env_file: .env
+     depends_on:
+-      db:
+-        condition: service_healthy
+       backend:
+         condition: service_started
+ 
+ volumes:
+-  mysql_data:
++  # mysql_data:   # only needed if the local `db` service is re-enabled
+   media_files:
+diff --git a/frontend/__tests__/NotificationItem.test.tsx b/frontend/__tests__/NotificationItem.test.tsx
+index 2e70de0..969f7af 100644
+--- a/frontend/__tests__/NotificationItem.test.tsx
++++ b/frontend/__tests__/NotificationItem.test.tsx
+@@ -24,7 +24,10 @@ const mockNotification: Notification = {
+     date: '2024-03-20',
+     recurrence: 'weekly',
+     event_type: 'watering',
++    is_manual: false,
+     created_at: '2024-01-01T00:00:00Z',
++    parent_event: null,
++    end_date: null,
+   },
+   telegram_message_id: '999',
+   status: 'sent',
+diff --git a/frontend/app/calendar/page.tsx b/frontend/app/calendar/page.tsx
+index 948f086..d2a2faa 100644
+--- a/frontend/app/calendar/page.tsx
++++ b/frontend/app/calendar/page.tsx
+@@ -3,16 +3,19 @@
+ import { useState } from 'react'
+ import { ChevronLeft, ChevronRight } from 'lucide-react'
+ import { format, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns'
++import { enUS as enLocale, es as esLocale } from 'date-fns/locale'
+ import { useCalendarEvents } from '@/lib/hooks'
+ import { WeekView } from '@/components/WeekView'
+ import { MonthView } from '@/components/MonthView'
+ import { getWeekString, getMonthString } from '@/lib/utils'
++import { useI18n } from '@/lib/i18n'
+ 
+ type ViewMode = 'week' | 'month'
+ 
+ export default function CalendarPage() {
+   const [viewMode, setViewMode] = useState<ViewMode>('week')
+   const [currentDate, setCurrentDate] = useState(new Date())
++  const { t, locale } = useI18n()
+ 
+   const params =
+     viewMode === 'week'
+@@ -30,15 +33,16 @@ export default function CalendarPage() {
+     }
+   }
+ 
++  const dfLocale = locale === 'es' ? esLocale : enLocale
+   const title =
+     viewMode === 'week'
+-      ? `Week of ${format(currentDate, 'MMM d, yyyy')}`
+-      : format(currentDate, 'MMMM yyyy')
++      ? t('calendar.weekOf', { date: format(currentDate, 'MMM d, yyyy', { locale: dfLocale }) })
++      : format(currentDate, 'MMMM yyyy', { locale: dfLocale })
+ 
+   return (
+     <div className="space-y-6">
+       <div className="flex items-center justify-between">
+-        <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">Calendar</h1>
++        <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">{t('calendar.title')}</h1>
+         <div className="flex items-center gap-2">
+           <div className="flex rounded-lg overflow-hidden border border-green-200 dark:border-green-700">
+             <button
+@@ -49,7 +53,7 @@ export default function CalendarPage() {
+                   : 'bg-white dark:bg-slate-800 text-green-700 dark:text-green-300 hover:bg-green-50'
+               }`}
+             >
+-              Week
++               {t('calendar.week')}
+             </button>
+             <button
+               onClick={() => setViewMode('month')}
+@@ -59,7 +63,7 @@ export default function CalendarPage() {
+                   : 'bg-white dark:bg-slate-800 text-green-700 dark:text-green-300 hover:bg-green-50'
+               }`}
+             >
+-              Month
++               {t('calendar.month')}
+             </button>
+           </div>
+         </div>
+diff --git a/frontend/app/garden/[id]/page.tsx b/frontend/app/garden/[id]/page.tsx
+index 8f3c320..25c2acb 100644
+--- a/frontend/app/garden/[id]/page.tsx
++++ b/frontend/app/garden/[id]/page.tsx
+@@ -1,8 +1,9 @@
+ 'use client'
+ 
+-import { use, useRef, useState } from 'react'
++import { use, useEffect, useRef, useState } from 'react'
+ import { useRouter } from 'next/navigation'
+ import Image from 'next/image'
++import { useQueryClient } from '@tanstack/react-query'
+ import {
+   ArrowLeft,
+   RefreshCw,
+@@ -27,6 +28,7 @@ import { TypeBadge } from '@/components/TypeBadge'
+ import { EventCard } from '@/components/EventCard'
+ import { LoadingSkeleton } from '@/components/LoadingSkeleton'
+ import { AddEventModal } from '@/components/AddEventModal'
++import { useI18n } from '@/lib/i18n'
+ 
+ function InlineTextEdit({
+   value,
+@@ -42,6 +44,7 @@ function InlineTextEdit({
+   const [editing, setEditing] = useState(false)
+   const [draft, setDraft] = useState(value)
+   const [saving, setSaving] = useState(false)
++  const { t } = useI18n()
+ 
+   async function handleSave() {
+     setSaving(true)
+@@ -72,14 +75,14 @@ function InlineTextEdit({
+             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium transition-colors disabled:opacity-50"
+           >
+             <Check className="w-3.5 h-3.5" />
+-            {saving ? 'Saving…' : 'Save'}
++            {saving ? t('common.saving') : t('common.save')}
+           </button>
+           <button
+             onClick={handleCancel}
+             className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-400 text-xs font-medium hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+           >
+             <X className="w-3.5 h-3.5" />
+-            Cancel
++            {t('common.cancel')}
+           </button>
+         </div>
+       </div>
+@@ -96,7 +99,7 @@ function InlineTextEdit({
+       <button
+         onClick={() => { setDraft(value); setEditing(true) }}
+         className="absolute -top-1 -right-1 p-2.5 rounded-md hover:bg-gray-100 dark:hover:bg-slate-600 transition-all text-gray-400 hover:text-gray-700"
+-        title="Edit"
++        title={t('plantDetail.edit')}
+       >
+         <Pencil className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" />
+       </button>
+@@ -109,21 +112,42 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
+   const router = useRouter()
+   const itemId = Number(id)
+   const photoInputRef = useRef<HTMLInputElement>(null)
++  const { t } = useI18n()
+ 
+   const [showAddEvent, setShowAddEvent] = useState(false)
+-  const { data: item, isLoading } = useGardenItem(itemId)
++  const [regenerating, setRegenerating] = useState(false)
++  const [regenError, setRegenError] = useState<string | null>(null)
++  const updatedAtAtStart = useRef<string | null>(null)
++  const qc = useQueryClient()
++  const { data: item, isLoading } = useGardenItem(itemId, regenerating ? 3000 : false)
+   const { data: events } = useItemEvents(itemId)
+   const generateCare = useGenerateCare()
+   const patch = usePatchGardenItem(itemId)
+   const patchPhoto = usePatchGardenItemPhoto(itemId)
+   const deleteEvent = useDeleteEvent(itemId)
+ 
++  // Stop "regenerating" when the LLM task saved new content (updated_at changed)
++  useEffect(() => {
++    if (!regenerating || !item) return
++    if (updatedAtAtStart.current !== null && item.updated_at !== updatedAtAtStart.current) {
++      setRegenerating(false)
++      qc.invalidateQueries({ queryKey: ['events', 'item', itemId] })
++    }
++  }, [item, regenerating, qc, itemId])
++
++  // Safety timeout: give up after 90s even if the task never updates the item
++  useEffect(() => {
++    if (!regenerating) return
++    const timeout = setTimeout(() => setRegenerating(false), 90_000)
++    return () => clearTimeout(timeout)
++  }, [regenerating])
++
+   if (isLoading) return <LoadingSkeleton />
+ 
+   if (!item) {
+     return (
+       <div className="text-center py-16">
+-        <p className="text-gray-500">Plant not found.</p>
++        <p className="text-gray-500">{t('plantDetail.notFound')}</p>
+       </div>
+     )
+   }
+@@ -135,6 +159,19 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
+     e.target.value = ''
+   }
+ 
++  function handleRegenerate() {
++    if (regenerating || generateCare.isPending) return
++    setRegenError(null)
++    updatedAtAtStart.current = item?.updated_at ?? null
++    setRegenerating(true)
++    generateCare.mutate(itemId, {
++      onError: (err) => {
++        setRegenError((err as Error)?.message ?? null)
++        setRegenerating(false)
++      },
++    })
++  }
++
+   return (
+     <div className="max-w-4xl mx-auto space-y-8">
+       <button
+@@ -142,7 +179,7 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
+         className="flex items-center gap-2 text-green-700 hover:text-green-900 transition-colors"
+       >
+         <ArrowLeft className="w-4 h-4" />
+-        Back to garden
++        {t('plantDetail.back')}
+       </button>
+ 
+       {/* Plant header */}
+@@ -164,12 +201,16 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
+             onClick={() => photoInputRef.current?.click()}
+             disabled={patchPhoto.isPending}
+             className="absolute inset-0 hidden md:flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors cursor-pointer"
+-            title={item.photo ? 'Replace photo' : 'Upload photo'}
++            title={item.photo ? t('plantDetail.replacePhoto') : t('plantDetail.uploadPhoto')}
+           >
+             <span className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity text-white">
+               <Camera className="w-8 h-8 drop-shadow" />
+               <span className="text-xs font-medium drop-shadow">
+-                {patchPhoto.isPending ? 'Uploading…' : item.photo ? 'Replace photo' : 'Upload photo'}
++                {patchPhoto.isPending
++                  ? t('plantDetail.uploading')
++                  : item.photo
++                    ? t('plantDetail.replacePhoto')
++                    : t('plantDetail.uploadPhoto')}
+               </span>
+             </span>
+           </button>
+@@ -179,7 +220,7 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
+             onClick={() => photoInputRef.current?.click()}
+             disabled={patchPhoto.isPending}
+             className="absolute top-2 right-2 p-2 rounded-full bg-black/50 text-white md:hidden disabled:opacity-50"
+-            title={item.photo ? 'Replace photo' : 'Upload photo'}
++            title={item.photo ? t('plantDetail.replacePhoto') : t('plantDetail.uploadPhoto')}
+           >
+             <Camera className="w-5 h-5" />
+           </button>
+@@ -200,36 +241,46 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
+               <div className="mt-2"><TypeBadge type={item.type} /></div>
+             </div>
+             <button
+-              onClick={() => generateCare.mutate(itemId)}
+-              disabled={generateCare.isPending}
++              onClick={handleRegenerate}
++              disabled={regenerating || generateCare.isPending}
+               className="flex items-center gap-2 px-4 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800 text-green-800 dark:text-green-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+             >
+-              <RefreshCw className={`w-4 h-4 ${generateCare.isPending ? 'animate-spin' : ''}`} />
+-              {generateCare.isPending ? 'Generating...' : 'Regenerate Care'}
++              <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
++              {regenerating ? t('plantDetail.generating') : t('plantDetail.regenerateCare')}
+             </button>
+           </div>
++          {regenerating && (
++            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
++              {t('plantDetail.regenerating')}
++            </p>
++          )}
++          {regenError && !regenerating && (
++            <p className="mt-3 text-sm text-red-600 dark:text-red-400">
++              {t('plantDetail.regenerateError')}
++            </p>
++          )}
+         </div>
+       </div>
+ 
+       {/* Description & Care */}
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow p-6">
+-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">About</h2>
++          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">{t('plantDetail.about')}</h2>
+           <InlineTextEdit
+             value={item.description}
+-            placeholder="AI is generating a description… click the pencil to write your own."
++            placeholder={t('plantDetail.aboutPlaceholder')}
+             onSave={(description) => patch.mutateAsync({ description })}
+           />
+         </div>
+ 
+         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow p-6">
+           <div className="flex items-center justify-between mb-3">
+-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Care Guide</h2>
++            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{t('plantDetail.careGuide')}</h2>
+             {item.cares && (
+               <button
+                 onClick={() => patch.mutate({ cares: '' })}
+                 disabled={patch.isPending}
+-                title="Clear care guide"
++                title={t('plantDetail.clearCareGuide')}
+                 className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+               >
+                 <Trash2 className="w-4 h-4" />
+@@ -238,7 +289,7 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
+           </div>
+           <InlineTextEdit
+             value={item.cares}
+-            placeholder="AI is generating care instructions… click the pencil to write your own."
++            placeholder={t('plantDetail.caresPlaceholder')}
+             onSave={(cares) => patch.mutateAsync({ cares })}
+           />
+         </div>
+@@ -254,7 +305,7 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
+           <div className="flex items-center gap-2">
+             <Calendar className="w-5 h-5 text-green-600" />
+             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+-              Care Schedule
++              {t('plantDetail.careSchedule')}
+             </h2>
+           </div>
+           <button
+@@ -262,7 +313,7 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
+             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/40 hover:bg-green-100 dark:hover:bg-green-900 rounded-lg transition-colors"
+           >
+             <Plus className="w-4 h-4" />
+-            Add Event
++            {t('plantDetail.addEvent')}
+           </button>
+         </div>
+         {events && events.length > 0 ? (
+@@ -277,7 +328,7 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
+           </div>
+         ) : (
+           <p className="text-gray-400 italic text-center py-6">
+-            No care events scheduled yet. AI will generate them shortly.
++            {t('plantDetail.noEvents')}
+           </p>
+         )}
+       </div>
+diff --git a/frontend/app/garden/new/page.tsx b/frontend/app/garden/new/page.tsx
+index 3f0843e..de09524 100644
+--- a/frontend/app/garden/new/page.tsx
++++ b/frontend/app/garden/new/page.tsx
+@@ -2,18 +2,20 @@
+ 
+ import { useRouter } from 'next/navigation'
+ import { PlantForm } from '@/components/PlantForm'
++import { useI18n } from '@/lib/i18n'
+ 
+ export default function NewPlantPage() {
+   const router = useRouter()
++  const { t } = useI18n()
+ 
+   return (
+     <div className="max-w-2xl mx-auto">
+       <div className="mb-8">
+         <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">
+-          Add New Plant
++          {t('newPlant.title')}
+         </h1>
+         <p className="text-green-600 dark:text-green-400 mt-2">
+-          Add a plant or tree to your garden. AI will generate care recommendations automatically.
++          {t('newPlant.subtitle')}
+         </p>
+       </div>
+       <PlantForm
+diff --git a/frontend/app/notifications/page.tsx b/frontend/app/notifications/page.tsx
+index 93794a0..2fa4f1b 100644
+--- a/frontend/app/notifications/page.tsx
++++ b/frontend/app/notifications/page.tsx
+@@ -5,13 +5,17 @@ import { Bell, Settings } from 'lucide-react'
+ import { useNotifications, useAcknowledgeNotification, useNotificationConfig, useSendTestNotification  } from '@/lib/hooks'
+ import { NotificationItem } from '@/components/NotificationItem'
+ import { api } from '@/lib/api'
++import { useI18n } from '@/lib/i18n'
+ import type { NotificationFrequency } from '@/lib/types'
+ 
++const FREQUENCIES: NotificationFrequency[] = ['daily', 'weekly', 'monthly']
++
+ export default function NotificationsPage() {
+   const { data: notifData, isLoading } = useNotifications()
+   const { data: configData } = useNotificationConfig()
+   const acknowledge = useAcknowledgeNotification()
+   const testNotification = useSendTestNotification()
++  const { t } = useI18n()
+ 
+   const [chatId, setChatId] = useState('')
+   const [frequency, setFrequency] = useState<NotificationFrequency>('weekly')
+@@ -36,7 +40,7 @@ export default function NotificationsPage() {
+     <div className="max-w-3xl mx-auto space-y-8">
+       <div className="flex items-center gap-3">
+         <Bell className="w-8 h-8 text-green-600" />
+-        <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">Notifications</h1>
++        <h1 className="text-3xl font-bold text-green-800 dark:text-green-200">{t('notifications.title')}</h1>
+       </div>
+ 
+       {/* Config section */}
+@@ -44,44 +48,50 @@ export default function NotificationsPage() {
+         <div className="flex items-center gap-2 mb-4">
+           <Settings className="w-5 h-5 text-green-600" />
+           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+-            Telegram Settings
++            {t('notifications.telegramSettings')}
+           </h2>
+         </div>
+         {config && (
+           <p className="text-sm text-green-600 dark:text-green-400">
+-            Current: Chat {config.telegram_chat_id} · {config.frequency} · {config.days_before} days before
++            {t('notifications.currentConfig', {
++              chatId: config.telegram_chat_id,
++              frequency: t(`frequencies.${config.frequency}` as 'frequencies.daily'),
++              daysBefore: config.days_before,
++            })}
+           </p>
+         )}
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+           <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+-              Telegram Chat ID
++              {t('notifications.chatIdLabel')}
+             </label>
+             <input
+               type="text"
+               value={chatId}
+               onChange={(e) => setChatId(e.target.value)}
+-              placeholder="e.g. 123456789"
++              placeholder={t('notifications.chatIdPlaceholder')}
+               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 text-sm"
+             />
+           </div>
+           <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+-              Frequency
++              {t('notifications.frequencyLabel')}
+             </label>
+             <select
+               value={frequency}
+               onChange={(e) => setFrequency(e.target.value as NotificationFrequency)}
+               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 text-sm"
+             >
+-              <option value="daily">Daily</option>
+-              <option value="weekly">Weekly</option>
+-              <option value="monthly">Monthly</option>
++              {FREQUENCIES.map((f) => (
++                <option key={f} value={f}>
++                  {t(`frequencies.${f}` as 'frequencies.daily')}
++                </option>
++              ))}
+             </select>
+           </div>
+           <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+-              Days Before
++              {t('notifications.daysBeforeLabel')}
+             </label>
+             <input
+               type="number"
+@@ -98,7 +108,7 @@ export default function NotificationsPage() {
+           disabled={saving || !chatId}
+           className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+         >
+-          {saving ? 'Saving...' : 'Save Settings'}
++          {saving ? t('common.saving') : t('notifications.saveSettings')}
+         </button>
+         <div className="flex items-center gap-3">
+           <button
+@@ -106,24 +116,24 @@ export default function NotificationsPage() {
+             disabled={saving || !chatId}
+             className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+           >
+-            {saving ? 'Saving...' : 'Save Settings'}
++            {saving ? t('common.saving') : t('notifications.saveSettings')}
+           </button>
+           <button
+             onClick={() => config && testNotification.mutate(config.id)}
+             disabled={!config || testNotification.isPending}
+             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+           >
+-            {testNotification.isPending ? 'Sending...' : 'Send Test Notification'}
++            {testNotification.isPending ? t('notifications.sending') : t('notifications.sendTest')}
+           </button>
+         </div>
+         {testNotification.isSuccess && (
+           <p className="text-sm text-green-600 dark:text-green-400">
+-            Test message sent successfully.
++            {t('notifications.testSuccess')}
+           </p>
+         )}
+         {testNotification.isError && (
+           <p className="text-sm text-red-600 dark:text-red-400">
+-            {(testNotification.error as Error)?.message || 'Failed to send test notification.'}
++            {(testNotification.error as Error)?.message || t('notifications.testError')}
+           </p>
+         )}
+       </div>
+@@ -131,13 +141,13 @@ export default function NotificationsPage() {
+       {/* Pending */}
+       <div>
+         <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
+-          Pending ({pending.length})
++          {t('notifications.pending', { count: pending.length })}
+         </h2>
+         {isLoading ? (
+-          <p className="text-gray-400">Loading...</p>
++          <p className="text-gray-400">{t('common.loading')}</p>
+         ) : pending.length === 0 ? (
+           <div className="text-center py-8 bg-white dark:bg-slate-800 rounded-2xl shadow">
+-            <p className="text-gray-400">No pending notifications 🎉</p>
++            <p className="text-gray-400">{t('notifications.noPending')}</p>
+           </div>
+         ) : (
+           <div className="space-y-3">
+@@ -157,7 +167,7 @@ export default function NotificationsPage() {
+       {acknowledged.length > 0 && (
+         <div>
+           <h2 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-4">
+-            Acknowledged ({acknowledged.length})
++            {t('notifications.acknowledged', { count: acknowledged.length })}
+           </h2>
+           <div className="space-y-3 opacity-60">
+             {acknowledged.slice(0, 10).map((notif) => (
+diff --git a/frontend/app/page.tsx b/frontend/app/page.tsx
+index 795bee1..b8e5873 100644
+--- a/frontend/app/page.tsx
++++ b/frontend/app/page.tsx
+@@ -5,9 +5,11 @@ import { Plus, Leaf } from 'lucide-react'
+ import { useGardenItems } from '@/lib/hooks'
+ import { GardenCard } from '@/components/GardenCard'
+ import { LoadingSkeleton } from '@/components/LoadingSkeleton'
++import { useI18n } from '@/lib/i18n'
+ 
+ export default function HomePage() {
+   const { data, isLoading, error } = useGardenItems()
++  const { t } = useI18n()
+ 
+   return (
+     <div className="space-y-8">
+@@ -19,10 +21,10 @@ export default function HomePage() {
+           </div>
+         </div>
+         <h1 className="text-4xl font-bold text-green-800 dark:text-green-200 mb-2">
+-          My Garden
++          {t('garden.title')}
+         </h1>
+         <p className="text-green-600 dark:text-green-400 text-lg">
+-          Your personal garden management companion
++          {t('garden.subtitle')}
+         </p>
+       </div>
+ 
+@@ -33,7 +35,7 @@ export default function HomePage() {
+           className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-full font-semibold shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5"
+         >
+           <Plus className="w-5 h-5" />
+-          Add Plant
++          {t('garden.addPlant')}
+         </Link>
+       </div>
+ 
+@@ -48,8 +50,8 @@ export default function HomePage() {
+ 
+       {error && (
+         <div className="text-center py-16">
+-          <p className="text-red-500 text-lg">Failed to load garden items.</p>
+-          <p className="text-gray-500 text-sm mt-2">Make sure the backend is running.</p>
++          <p className="text-red-500 text-lg">{t('garden.loadError')}</p>
++          <p className="text-gray-500 text-sm mt-2">{t('garden.loadErrorHint')}</p>
+         </div>
+       )}
+ 
+@@ -57,17 +59,17 @@ export default function HomePage() {
+         <div className="text-center py-24">
+           <div className="text-8xl mb-6">🌱</div>
+           <h2 className="text-2xl font-semibold text-green-700 dark:text-green-300 mb-3">
+-            Your garden is empty
++            {t('garden.emptyTitle')}
+           </h2>
+           <p className="text-green-600 dark:text-green-400 mb-8 text-lg">
+-            Add your first plant or tree to get started!
++            {t('garden.emptyText')}
+           </p>
+           <Link
+             href="/garden/new"
+             className="inline-flex items-center gap-2 px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-full font-semibold shadow-lg text-lg transition-all"
+           >
+             <Plus className="w-6 h-6" />
+-            Add your first plant
++            {t('garden.emptyCta')}
+           </Link>
+         </div>
+       )}
+diff --git a/frontend/components/AddEventModal.tsx b/frontend/components/AddEventModal.tsx
+index a8da42f..6490afd 100644
+--- a/frontend/components/AddEventModal.tsx
++++ b/frontend/components/AddEventModal.tsx
+@@ -4,14 +4,20 @@ import { useState } from 'react'
+ import { X } from 'lucide-react'
+ import type { EventType, RecurrenceType } from '@/lib/types'
+ import { useCreateEvent } from '@/lib/hooks'
++import { useI18n } from '@/lib/i18n'
++import type { TKey } from '@/lib/i18n/en'
+ 
+ interface AddEventModalProps {
+   itemId: number
+   onClose: () => void
+ }
+ 
++const EVENT_TYPES: EventType[] = ['watering', 'fertilizing', 'pruning', 'other']
++const RECURRENCES: RecurrenceType[] = ['once', 'weekly', 'monthly', 'yearly']
++
+ export function AddEventModal({ itemId, onClose }: AddEventModalProps) {
+   const createEvent = useCreateEvent(itemId)
++  const { t } = useI18n()
+ 
+   const [title, setTitle] = useState('')
+   const [description, setDescription] = useState('')
+@@ -39,7 +45,7 @@ export function AddEventModal({ itemId, onClose }: AddEventModalProps) {
+     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
+       <div className="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-md mx-0 sm:mx-4 p-6 max-h-[90vh] overflow-y-auto">
+         <div className="flex items-center justify-between mb-4">
+-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Add Care Event</h2>
++          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{t('addEventModal.title')}</h2>
+           <button
+             onClick={onClose}
+             className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+@@ -51,27 +57,27 @@ export function AddEventModal({ itemId, onClose }: AddEventModalProps) {
+         <form onSubmit={handleSubmit} className="space-y-4">
+           <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+-              Title
++              {t('addEventModal.titleLabel')}
+             </label>
+             <input
+               required
+               type="text"
+               value={title}
+               onChange={(e) => setTitle(e.target.value)}
+-              placeholder="e.g. Water deeply"
++              placeholder={t('addEventModal.titlePlaceholder')}
+               className="w-full rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+             />
+           </div>
+ 
+           <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+-              Description
++              {t('addEventModal.descriptionLabel')}
+             </label>
+             <textarea
+               value={description}
+               onChange={(e) => setDescription(e.target.value)}
+               rows={2}
+-              placeholder="Optional notes"
++              placeholder={t('addEventModal.descriptionPlaceholder')}
+               className="w-full rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+             />
+           </div>
+@@ -79,7 +85,7 @@ export function AddEventModal({ itemId, onClose }: AddEventModalProps) {
+           <div className="grid grid-cols-2 gap-4">
+             <div>
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+-                Date
++                {t('addEventModal.dateLabel')}
+               </label>
+               <input
+                 required
+@@ -92,45 +98,43 @@ export function AddEventModal({ itemId, onClose }: AddEventModalProps) {
+ 
+             <div>
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+-                Type
++                {t('addEventModal.typeLabel')}
+               </label>
+               <select
+                 value={eventType}
+                 onChange={(e) => setEventType(e.target.value as EventType)}
+                 className="w-full rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+               >
+-                <option value="watering">Watering</option>
+-                <option value="fertilizing">Fertilizing</option>
+-                <option value="pruning">Pruning</option>
+-                <option value="other">Other</option>
++                {EVENT_TYPES.map((value) => (
++                  <option key={value} value={value}>{t(`eventTypes.${value}` as TKey)}</option>
++                ))}
+               </select>
+             </div>
+           </div>
+ 
+           <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+-              Recurrence
++              {t('addEventModal.recurrenceLabel')}
+             </label>
+             <select
+               value={recurrence}
+               onChange={(e) => {
+-               const val = e.target.value as RecurrenceType
+-               setRecurrence(val)
+-               if (val === 'once') setEndDate('')
+-             }}
++                const val = e.target.value as RecurrenceType
++                setRecurrence(val)
++                if (val === 'once') setEndDate('')
++              }}
+               className="w-full rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+             >
+-              <option value="once">Once</option>
+-              <option value="weekly">Weekly</option>
+-              <option value="monthly">Monthly</option>
+-              <option value="yearly">Yearly</option>
++              {RECURRENCES.map((value) => (
++                <option key={value} value={value}>{t(`recurrences.${value}` as TKey)}</option>
++              ))}
+             </select>
+           </div>
+           {recurrence !== 'once' && (
+             <div>
+               <label className="block text-sm font-medium text-gray-700
+           dark:text-gray-300 mb-1">
+-                End Date <span className="text-gray-400 font-normal">(optional)</span>
++                {t('addEventModal.endDateLabel')} <span className="text-gray-400 font-normal">{t('common.optional')}</span>
+               </label>
+               <input
+                 type="date"
+@@ -150,14 +154,14 @@ export function AddEventModal({ itemId, onClose }: AddEventModalProps) {
+               onClick={onClose}
+               className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+             >
+-              Cancel
++              {t('common.cancel')}
+             </button>
+             <button
+               type="submit"
+               disabled={createEvent.isPending}
+               className="flex-1 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
+             >
+-              {createEvent.isPending ? 'Saving...' : 'Add Event'}
++              {createEvent.isPending ? t('common.saving') : t('addEventModal.addEvent')}
+             </button>
+           </div>
+         </form>
+diff --git a/frontend/components/EventCard.tsx b/frontend/components/EventCard.tsx
+index dea89f3..a48e1bd 100644
+--- a/frontend/components/EventCard.tsx
++++ b/frontend/components/EventCard.tsx
+@@ -5,6 +5,8 @@ import { Trash2, X, Check } from 'lucide-react'
+ import type { CalendarEvent } from '@/lib/types'
+ import { EventTypeIcon } from './EventTypeIcon'
+ import { formatDate } from '@/lib/utils'
++import { useI18n } from '@/lib/i18n'
++import type { TKey } from '@/lib/i18n/en'
+ 
+ interface EventCardProps {
+   event: CalendarEvent
+@@ -12,6 +14,7 @@ interface EventCardProps {
+ }
+ 
+ export function EventCard({ event, onDelete }: EventCardProps) {
++  const { t, locale } = useI18n()
+   const [confirming, setConfirming] = useState(false)
+   const [deleting, setDeleting] = useState(false)
+ 
+@@ -35,22 +38,22 @@ export function EventCard({ event, onDelete }: EventCardProps) {
+           </p>
+         )}
+         <div className="flex items-center gap-2 mt-1">
+-          <span className="text-xs text-gray-400">{formatDate(event.date)}</span>
++          <span className="text-xs text-gray-400">{formatDate(event.date, locale)}</span>
+           <span className="text-xs text-gray-300">·</span>
+-          <span className="text-xs text-gray-400 capitalize">{event.recurrence}</span>
++          <span className="text-xs text-gray-400">{t(`recurrences.${event.recurrence}` as TKey)}</span>
+           {event.is_manual && (
+             <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 font-medium">
+-              Manual
++              {t('eventCard.manual')}
+             </span>
+           )}
+           {event.end_date && (
+             <>
+               <span className="text-xs text-gray-300">·</span>
+               <span className="text-xs text-gray-400">
+-                until {formatDate(event.end_date)}
++                {t('eventCard.until', { date: formatDate(event.end_date, locale) })}
+               </span>
+             </>
+-            )}
++          )}
+         </div>
+       </div>
+ 
+@@ -61,14 +64,14 @@ export function EventCard({ event, onDelete }: EventCardProps) {
+               <button
+                 onClick={handleDelete}
+                 disabled={deleting}
+-                title="Confirm delete"
++                title={t('eventCard.confirmDelete')}
+                 className="p-2.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900 transition-colors disabled:opacity-50"
+               >
+                 <Check className="w-3.5 h-3.5" />
+               </button>
+               <button
+                 onClick={() => setConfirming(false)}
+-                title="Cancel"
++                title={t('common.cancel')}
+                 className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 transition-colors"
+               >
+                 <X className="w-3.5 h-3.5" />
+@@ -77,7 +80,7 @@ export function EventCard({ event, onDelete }: EventCardProps) {
+           ) : (
+             <button
+               onClick={() => setConfirming(true)}
+-              title="Delete event"
++              title={t('eventCard.deleteEvent')}
+               className="p-2.5 rounded-lghover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-all"
+             >
+               <Trash2 className="w-3.5 h-3.5" />
+diff --git a/frontend/components/EventTypeIcon.tsx b/frontend/components/EventTypeIcon.tsx
+index 45e9db6..d547e00 100644
+--- a/frontend/components/EventTypeIcon.tsx
++++ b/frontend/components/EventTypeIcon.tsx
+@@ -1,4 +1,8 @@
++'use client'
++
+ import type { EventType } from '@/lib/types'
++import { useI18n } from '@/lib/i18n'
++import type { TKey } from '@/lib/i18n/en'
+ 
+ const ICONS: Record<EventType, string> = {
+   watering: '💧',
+@@ -11,13 +15,14 @@ const COLORS: Record<EventType, string> = {
+   watering: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+   fertilizing: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+   pruning: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+-  other: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
++  other: 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-gray-300',
+ }
+ 
+ export function EventTypeIcon({ type }: { type: EventType }) {
++  const { t } = useI18n()
+   return (
+     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${COLORS[type] ?? COLORS.other}`}>
+-      {ICONS[type] ?? '📋'} {type}
++      {ICONS[type] ?? '📋'} {t(`eventTypes.${type}` as TKey)}
+     </span>
+   )
+ }
+diff --git a/frontend/components/GardenCard.tsx b/frontend/components/GardenCard.tsx
+index c95e0a4..512fb87 100644
+--- a/frontend/components/GardenCard.tsx
++++ b/frontend/components/GardenCard.tsx
+@@ -1,14 +1,18 @@
++'use client'
++
+ import Link from 'next/link'
+ import Image from 'next/image'
+ import { Leaf } from 'lucide-react'
+ import type { GardenItem } from '@/lib/types'
+ import { TypeBadge } from './TypeBadge'
++import { useI18n } from '@/lib/i18n'
+ 
+ interface Props {
+   item: GardenItem
+ }
+ 
+ export function GardenCard({ item }: Props) {
++  const { t } = useI18n()
+   return (
+     <Link href={`/garden/${item.id}`} className="group block">
+       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow hover:shadow-xl transition-all duration-300 overflow-hidden hover:-translate-y-1">
+@@ -42,7 +46,7 @@ export function GardenCard({ item }: Props) {
+             </p>
+           ) : (
+             <p className="text-gray-400 dark:text-gray-500 text-sm italic">
+-              Generating care guide...
++              {t('garden.generatingCare')}
+             </p>
+           )}
+         </div>
+diff --git a/frontend/components/MonthView.tsx b/frontend/components/MonthView.tsx
+index a9842b5..a497fff 100644
+--- a/frontend/components/MonthView.tsx
++++ b/frontend/components/MonthView.tsx
+@@ -1,5 +1,21 @@
+-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, format, parseISO } from 'date-fns'
++'use client'
++
++import {
++  startOfMonth,
++  endOfMonth,
++  startOfWeek,
++  endOfWeek,
++  eachDayOfInterval,
++  isSameMonth,
++  isSameDay,
++  format,
++  parseISO,
++  addDays,
++} from 'date-fns'
++import { es as esLocale } from 'date-fns/locale'
+ import type { CalendarEvent } from '@/lib/types'
++import { useI18n } from '@/lib/i18n'
++import type { TKey } from '@/lib/i18n/en'
+ 
+ const EVENT_COLORS: Record<string, string> = {
+   watering: 'bg-blue-400',
+@@ -14,18 +30,24 @@ interface Props {
+ }
+ 
+ export function MonthView({ events, currentDate }: Props) {
++  const { t, locale } = useI18n()
++  const dfLocale = locale === 'es' ? esLocale : undefined
+   const monthStart = startOfMonth(currentDate)
+   const monthEnd = endOfMonth(currentDate)
+   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
+   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
+   const days = eachDayOfInterval({ start: gridStart, end: gridEnd })
++  const dayHeaders = Array.from(
++    { length: 7 },
++    (_, i) => format(addDays(gridStart, i), 'EEE', { locale: dfLocale })
++  )
+ 
+   return (
+     <div className="overflow-x-auto">
+       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow overflow-hidden min-w-[320px]">
+         {/* Day headers */}
+         <div className="grid grid-cols-7 border-b border-gray-100 dark:border-slate-700">
+-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
++          {dayHeaders.map((d) => (
+             <div key={d} className="text-center py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">
+               {d}
+             </div>
+@@ -45,7 +67,7 @@ export function MonthView({ events, currentDate }: Props) {
+                 className={`min-h-24 p-2 border-b border-r border-gray-100 dark:border-slate-700 ${!isCurrentMonth ? 'opacity-30' : ''}`}
+               >
+                 <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium mb-1 ${isToday ? 'bg-green-600 text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+-                  {format(day, 'd')}
++                  {format(day, 'd', { locale: dfLocale })}
+                 </div>
+                 <div className="space-y-0.5">
+                   {dayEvents.slice(0, 3).map((event) => (
+@@ -69,7 +91,9 @@ export function MonthView({ events, currentDate }: Props) {
+           {Object.entries(EVENT_COLORS).map(([type, color]) => (
+             <div key={type} className="flex items-center gap-1.5">
+               <div className={`w-3 h-3 rounded-full ${color}`} />
+-              <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">{type}</span>
++              <span className="text-xs text-gray-500 dark:text-gray-400">
++                {t(`eventTypes.${type}` as TKey)}
++              </span>
+             </div>
+           ))}
+         </div>
+diff --git a/frontend/components/NotificationItem.tsx b/frontend/components/NotificationItem.tsx
+index 27c4abc..26ff0f4 100644
+--- a/frontend/components/NotificationItem.tsx
++++ b/frontend/components/NotificationItem.tsx
+@@ -1,7 +1,10 @@
++'use client'
++
+ import { Check, Clock } from 'lucide-react'
+ import type { Notification } from '@/lib/types'
+ import { EventTypeIcon } from './EventTypeIcon'
+ import { formatDate } from '@/lib/utils'
++import { useI18n } from '@/lib/i18n'
+ 
+ interface Props {
+   notification: Notification
+@@ -10,6 +13,7 @@ interface Props {
+ }
+ 
+ export function NotificationItem({ notification, onAcknowledge, isAcknowledging }: Props) {
++  const { t, locale } = useI18n()
+   const event = notification.event_detail
+ 
+   return (
+@@ -18,23 +22,23 @@ export function NotificationItem({ notification, onAcknowledge, isAcknowledging
+         <div className="flex items-center gap-2 flex-wrap">
+           {event && <EventTypeIcon type={event.event_type} />}
+           <span className="font-medium text-gray-800 dark:text-gray-100 text-sm">
+-            {event?.title ?? `Event #${notification.event}`}
++            {event?.title ?? t('notificationItem.eventNumber', { id: notification.event })}
+           </span>
+         </div>
+         {event && (
+           <p className="text-xs text-gray-500 dark:text-gray-400">
+-            🌿 {event.item_detail?.name} · 📅 {formatDate(event.date)}
++            🌿 {event.item_detail?.name} · 📅 {formatDate(event.date, locale)}
+           </p>
+         )}
+         {notification.sent_at && (
+           <p className="text-xs text-gray-400 flex items-center gap-1">
+             <Clock className="w-3 h-3" />
+-            Sent {formatDate(notification.sent_at)}
++            {t('notificationItem.sentOn', { date: formatDate(notification.sent_at, locale) })}
+           </p>
+         )}
+         {notification.acknowledged && notification.next_occurrence_date && (
+           <p className="text-xs text-green-600 dark:text-green-400">
+-            Next reminder: {formatDate(notification.next_occurrence_date)}
++            {t('notificationItem.nextReminder', { date: formatDate(notification.next_occurrence_date, locale) })}
+           </p>
+         )}
+       </div>
+@@ -45,7 +49,7 @@ export function NotificationItem({ notification, onAcknowledge, isAcknowledging
+           className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800 text-green-700 dark:text-green-300 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+         >
+           <Check className="w-3.5 h-3.5" />
+-          Acknowledge
++          {t('notificationItem.acknowledge')}
+         </button>
+       )}
+     </div>
+diff --git a/frontend/components/PlantForm.tsx b/frontend/components/PlantForm.tsx
+index 22b34a9..65a565a 100644
+--- a/frontend/components/PlantForm.tsx
++++ b/frontend/components/PlantForm.tsx
+@@ -7,24 +7,37 @@ import { z } from 'zod'
+ import { Loader2, Upload } from 'lucide-react'
+ import { useCreateGardenItem } from '@/lib/hooks'
+ import type { GardenItemType } from '@/lib/types'
++import { useI18n } from '@/lib/i18n'
++import type { TKey } from '@/lib/i18n/en'
+ 
+-const schema = z.object({
+-  name: z.string().min(1, 'Name is required').max(200),
+-  type: z.enum(['plant', 'tree', 'shrub', 'other']),
+-})
+-
+-type FormData = z.infer<typeof schema>
++type FormData = {
++  name: string
++  type: GardenItemType
++}
+ 
+ interface Props {
+   onSuccess: (id: number) => void
+   onCancel: () => void
+ }
+ 
++const TYPE_EMOJI: Record<GardenItemType, string> = {
++  plant: '🌿',
++  tree: '🌳',
++  shrub: '🌸',
++  other: '🍀',
++}
++
+ export function PlantForm({ onSuccess, onCancel }: Props) {
++  const { t } = useI18n()
+   const [photo, setPhoto] = useState<File | null>(null)
+   const [isGenerating, setIsGenerating] = useState(false)
+   const create = useCreateGardenItem()
+ 
++  const schema = z.object({
++    name: z.string().min(1, t('plantForm.nameRequired')).max(200),
++    type: z.enum(['plant', 'tree', 'shrub', 'other']),
++  })
++
+   const {
+     register,
+     handleSubmit,
+@@ -51,12 +64,12 @@ export function PlantForm({ onSuccess, onCancel }: Props) {
+       {/* Name */}
+       <div>
+         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+-          Plant / Tree Name *
++          {t('plantForm.nameLabel')}
+         </label>
+         <input
+           {...register('name')}
+           type="text"
+-          placeholder="e.g. Red Rose, Oak Tree, Lavender"
++          placeholder={t('plantForm.namePlaceholder')}
+           className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition"
+         />
+         {errors.name && (
+@@ -67,16 +80,15 @@ export function PlantForm({ onSuccess, onCancel }: Props) {
+       {/* Type */}
+       <div>
+         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+-          Type *
++          {t('plantForm.typeLabel')}
+         </label>
+         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+           {(['plant', 'tree', 'shrub', 'other'] as GardenItemType[]).map((type) => {
+-            const labels = { plant: '🌿 Plant', tree: '🌳 Tree', shrub: '🌸 Shrub', other: '🍀 Other' }
+             return (
+               <label key={type} className="cursor-pointer">
+                 <input {...register('type')} type="radio" value={type} className="sr-only peer" />
+                 <div className="text-center py-3 px-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900 transition-all hover:border-green-300 text-sm font-medium text-gray-700 dark:text-gray-300">
+-                  {labels[type]}
++                  {TYPE_EMOJI[type]} {t(`types.${type}` as TKey)}
+                 </div>
+               </label>
+             )
+@@ -88,12 +100,12 @@ export function PlantForm({ onSuccess, onCancel }: Props) {
+       {/* Photo */}
+       <div>
+         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+-          Photo (optional)
++          {t('plantForm.photoLabel')}
+         </label>
+         <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:border-green-400 transition-colors">
+           <div className="flex flex-col items-center gap-2 text-gray-400">
+             <Upload className="w-6 h-6" />
+-            <span className="text-sm">{photo ? photo.name : 'Click to upload photo'}</span>
++            <span className="text-sm">{photo ? photo.name : t('plantForm.uploadPhoto')}</span>
+           </div>
+           <input
+             type="file"
+@@ -107,7 +119,7 @@ export function PlantForm({ onSuccess, onCancel }: Props) {
+       {/* LLM notice */}
+       <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-4">
+         <p className="text-sm text-green-700 dark:text-green-300">
+-          ✨ After adding, AI will automatically generate a description and care schedule for your plant.
++          {t('plantForm.aiNotice')}
+         </p>
+       </div>
+ 
+@@ -116,7 +128,7 @@ export function PlantForm({ onSuccess, onCancel }: Props) {
+         <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+           <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+           <p className="text-sm text-blue-700 dark:text-blue-300">
+-            Creating plant and generating AI care guide...
++            {t('plantForm.creating')}
+           </p>
+         </div>
+       )}
+@@ -128,7 +140,7 @@ export function PlantForm({ onSuccess, onCancel }: Props) {
+           onClick={onCancel}
+           className="flex-1 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+         >
+-          Cancel
++          {t('common.cancel')}
+         </button>
+         <button
+           type="submit"
+@@ -136,7 +148,7 @@ export function PlantForm({ onSuccess, onCancel }: Props) {
+           className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+         >
+           {create.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+-          Add to Garden
++          {t('plantForm.addToGarden')}
+         </button>
+       </div>
+     </form>
+diff --git a/frontend/components/Providers.tsx b/frontend/components/Providers.tsx
+index af0c1f1..f57c39c 100644
+--- a/frontend/components/Providers.tsx
++++ b/frontend/components/Providers.tsx
+@@ -2,10 +2,15 @@
+ 
+ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+ import { useState } from 'react'
++import { I18nProvider } from '@/lib/i18n'
+ 
+ export function Providers({ children }: { children: React.ReactNode }) {
+   const [queryClient] = useState(
+     () => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } })
+   )
+-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
++  return (
++    <QueryClientProvider client={queryClient}>
++      <I18nProvider>{children}</I18nProvider>
++    </QueryClientProvider>
++  )
+ }
+diff --git a/frontend/components/TypeBadge.tsx b/frontend/components/TypeBadge.tsx
+index 0d62000..becf4c2 100644
+--- a/frontend/components/TypeBadge.tsx
++++ b/frontend/components/TypeBadge.tsx
+@@ -1,19 +1,24 @@
++'use client'
++
+ import type { GardenItemType } from '@/lib/types'
+ import { cn } from '@/lib/utils'
++import { useI18n } from '@/lib/i18n'
++import type { TKey } from '@/lib/i18n/en'
+ 
+-const CONFIG: Record<GardenItemType, { label: string; emoji: string; className: string }> = {
+-  plant: { label: 'Plant', emoji: '🌿', className: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
+-  tree: { label: 'Tree', emoji: '🌳', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' },
+-  shrub: { label: 'Shrub', emoji: '🌸', className: 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300' },
+-  other: { label: 'Other', emoji: '🍀', className: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300' },
++const CONFIG: Record<GardenItemType, { emoji: string; className: string }> = {
++  plant: { emoji: '🌿', className: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
++  tree: { emoji: '🌳', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' },
++  shrub: { emoji: '🌸', className: 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300' },
++  other: { emoji: '🍀', className: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300' },
+ }
+ 
+ export function TypeBadge({ type }: { type: GardenItemType }) {
++  const { t } = useI18n()
+   const config = CONFIG[type] ?? CONFIG.other
+   return (
+     <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', config.className)}>
+       <span>{config.emoji}</span>
+-      {config.label}
++      {t(`types.${type}` as TKey)}
+     </span>
+   )
+ }
+diff --git a/frontend/components/WeekView.tsx b/frontend/components/WeekView.tsx
+index bfde89c..0ba9530 100644
+--- a/frontend/components/WeekView.tsx
++++ b/frontend/components/WeekView.tsx
+@@ -1,6 +1,10 @@
++'use client'
++
+ import { startOfWeek, addDays, format, isSameDay, parseISO } from 'date-fns'
++import { es as esLocale } from 'date-fns/locale'
+ import type { CalendarEvent } from '@/lib/types'
+ import { EventTypeIcon } from './EventTypeIcon'
++import { useI18n } from '@/lib/i18n'
+ 
+ interface Props {
+   events: CalendarEvent[]
+@@ -8,6 +12,8 @@ interface Props {
+ }
+ 
+ export function WeekView({ events, currentDate }: Props) {
++  const { locale } = useI18n()
++  const dfLocale = locale === 'es' ? esLocale : undefined
+   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
+   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+ 
+@@ -20,8 +26,8 @@ export function WeekView({ events, currentDate }: Props) {
+           return (
+             <div key={day.toISOString()} className="min-h-32">
+               <div className={`text-center py-2 rounded-t-lg text-sm font-medium ${isToday ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400'}`}>
+-                <div>{format(day, 'EEE')}</div>
+-                <div className="text-lg font-bold">{format(day, 'd')}</div>
++                <div>{format(day, 'EEE', { locale: dfLocale })}</div>
++                <div className="text-lg font-bold">{format(day, 'd', { locale: dfLocale })}</div>
+               </div>
+               <div className="space-y-1 p-1 bg-white dark:bg-slate-800 rounded-b-lg min-h-24 border border-gray-100 dark:border-slate-700">
+                 {dayEvents.map((event) => (
+diff --git a/frontend/components/layout/Header.tsx b/frontend/components/layout/Header.tsx
+index 85613c3..b9cdacd 100644
+--- a/frontend/components/layout/Header.tsx
++++ b/frontend/components/layout/Header.tsx
+@@ -1,7 +1,11 @@
++'use client'
++
+ import Link from 'next/link'
+ import { Flower2 } from 'lucide-react'
++import { useI18n } from '@/lib/i18n'
+ 
+ export function Header() {
++  const { t } = useI18n()
+   return (
+     <header className="bg-white dark:bg-slate-900 border-b border-green-100 dark:border-slate-700 shadow-sm">
+       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+@@ -17,7 +21,7 @@ export function Header() {
+           </div>
+         </Link>
+         <div className="hidden sm:block text-sm text-green-600 dark:text-green-400">
+-          AI-powered garden care
++          {t('header.tagline')}
+         </div>
+       </div>
+     </header>
+diff --git a/frontend/components/layout/MobileNav.tsx b/frontend/components/layout/MobileNav.tsx
+index df1e9bd..d92fcd7 100644
+--- a/frontend/components/layout/MobileNav.tsx
++++ b/frontend/components/layout/MobileNav.tsx
+@@ -2,24 +2,28 @@
+ 
+ import Link from 'next/link'
+ import { usePathname } from 'next/navigation'
+-import { Home, Plus, Calendar, Bell } from 'lucide-react'
++import { Home, Plus, Calendar, Bell, Settings } from 'lucide-react'
+ import { usePendingNotifications } from '@/lib/hooks'
++import { useI18n } from '@/lib/i18n'
++import type { TKey } from '@/lib/i18n/en'
+ 
+-const links = [
+-  { href: '/', label: 'Garden', icon: Home },
+-  { href: '/garden/new', label: 'Add Plant', icon: Plus },
+-  { href: '/calendar', label: 'Calendar', icon: Calendar },
+-  { href: '/notifications', label: 'Notifications', icon: Bell },
++const links: { href: string; key: TKey; icon: typeof Home }[] = [
++  { href: '/', key: 'nav.garden', icon: Home },
++  { href: '/garden/new', key: 'nav.addPlant', icon: Plus },
++  { href: '/calendar', key: 'nav.calendar', icon: Calendar },
++  { href: '/notifications', key: 'nav.notifications', icon: Bell },
++  { href: '/settings', key: 'nav.settings', icon: Settings },
+ ]
+ 
+ export function MobileNav() {
+   const pathname = usePathname()
+   const { data: pending } = usePendingNotifications()
++  const { t } = useI18n()
+   const pendingCount = pending?.length ?? 0
+ 
+   return (
+     <nav className="fixed bottom-0 left-0 right-0 z-40 flex bg-white dark:bg-slate-900 border-t border-green-100 dark:border-slate-700 md:hidden safe-area-pb">
+-      {links.map(({ href, label, icon: Icon }) => {
++      {links.map(({ href, key, icon: Icon }) => {
+         const isActive = pathname === href
+         return (
+           <Link
+@@ -33,11 +37,11 @@ export function MobileNav() {
+           >
+             <div className="relative">
+               <Icon className="w-5 h-5" />
+-              {label === 'Notifications' && pendingCount > 0 && (
++              {key === 'nav.notifications' && pendingCount > 0 && (
+                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
+               )}
+             </div>
+-            <span className="text-xs">{label}</span>
++            <span className="text-xs">{t(key)}</span>
+           </Link>
+         )
+       })}
+diff --git a/frontend/components/layout/Navigation.tsx b/frontend/components/layout/Navigation.tsx
+index 31c6bfa..4648913 100644
+--- a/frontend/components/layout/Navigation.tsx
++++ b/frontend/components/layout/Navigation.tsx
+@@ -2,25 +2,29 @@
+ 
+ import Link from 'next/link'
+ import { usePathname } from 'next/navigation'
+-import { Home, Plus, Calendar, Bell } from 'lucide-react'
++import { Home, Plus, Calendar, Bell, Settings } from 'lucide-react'
+ import { usePendingNotifications } from '@/lib/hooks'
+ import { cn } from '@/lib/utils'
++import { useI18n } from '@/lib/i18n'
++import type { TKey } from '@/lib/i18n/en'
+ 
+-const links = [
+-  { href: '/', label: 'Garden', icon: Home },
+-  { href: '/garden/new', label: 'Add Plant', icon: Plus },
+-  { href: '/calendar', label: 'Calendar', icon: Calendar },
+-  { href: '/notifications', label: 'Notifications', icon: Bell },
++const links: { href: string; key: TKey; icon: typeof Home }[] = [
++  { href: '/', key: 'nav.garden', icon: Home },
++  { href: '/garden/new', key: 'nav.addPlant', icon: Plus },
++  { href: '/calendar', key: 'nav.calendar', icon: Calendar },
++  { href: '/notifications', key: 'nav.notifications', icon: Bell },
++  { href: '/settings', key: 'nav.settings', icon: Settings },
+ ]
+ 
+ export function Navigation() {
+   const pathname = usePathname()
+   const { data: pending } = usePendingNotifications()
++  const { t } = useI18n()
+   const pendingCount = pending?.length ?? 0
+ 
+   return (
+     <nav className="hidden md:flex md:w-56 md:min-h-screen md:flex-col">
+-      {links.map(({ href, label, icon: Icon }) => {
++      {links.map(({ href, key, icon: Icon }) => {
+         const isActive = pathname === href
+         return (
+           <Link
+@@ -34,8 +38,8 @@ export function Navigation() {
+             )}
+           >
+             <Icon className="w-5 h-5 flex-shrink-0" />
+-            <span>{label}</span>
+-            {label === 'Notifications' && pendingCount > 0 && (
++            <span>{t(key)}</span>
++            {key === 'nav.notifications' && pendingCount > 0 && (
+               <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                 {pendingCount > 9 ? '9+' : pendingCount}
+               </span>
+diff --git a/frontend/lib/api.ts b/frontend/lib/api.ts
+index 7fb94da..b9984b1 100644
+--- a/frontend/lib/api.ts
++++ b/frontend/lib/api.ts
+@@ -1,4 +1,5 @@
+ import type {
++  AppSettings,
+   GardenItem,
+   CalendarEvent,
+   Notification,
+@@ -6,7 +7,14 @@ import type {
+   PaginatedResponse,
+ } from './types'
+ 
+-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
++// No fixed host: the API runs on this same machine (port 8000), so call it
++// via whatever hostname the app was loaded from (works on LAN phones too,
++// and survives the Mac's DHCP IP changing). NEXT_PUBLIC_API_URL overrides.
++export const API_BASE =
++  process.env.NEXT_PUBLIC_API_URL ||
++  (typeof window !== 'undefined'
++    ? `http://${window.location.hostname}:8000/api/v1`
++    : 'http://localhost:8000/api/v1')
+ 
+ async function request<T>(path: string, options?: RequestInit): Promise<T> {
+   const res = await fetch(`${API_BASE}${path}`, {
+@@ -93,4 +101,13 @@ export const api = {
+         method: 'POST',
+       }),
+   },
++
++  settings: {
++    get: () => request<AppSettings>('/settings/'),
++    save: (data: Partial<AppSettings>) =>
++      request<AppSettings>('/settings/', {
++        method: 'PATCH',
++        body: JSON.stringify(data),
++      }),
++  },
+ }
+diff --git a/frontend/lib/hooks.ts b/frontend/lib/hooks.ts
+index ba03922..8d2b3b9 100644
+--- a/frontend/lib/hooks.ts
++++ b/frontend/lib/hooks.ts
+@@ -10,11 +10,12 @@ export function useGardenItems(params?: Record<string, string>) {
+   })
+ }
+ 
+-export function useGardenItem(id: number) {
++export function useGardenItem(id: number, refetchInterval?: number | false) {
+   return useQuery({
+     queryKey: ['garden', id],
+     queryFn: () => api.garden.get(id),
+     enabled: !!id,
++    refetchInterval,
+   })
+ }
+ 
+@@ -132,4 +133,19 @@ export function useSendTestNotification() {
+   return useMutation({
+     mutationFn: (id: number) => api.notifications.testNotification(id),
+   })
++}
++
++export function useAppSettings() {
++  return useQuery({
++    queryKey: ['settings'],
++    queryFn: () => api.settings.get(),
++  })
++}
++
++export function useSaveAppSettings() {
++  const qc = useQueryClient()
++  return useMutation({
++    mutationFn: (data: Partial<import('./types').AppSettings>) => api.settings.save(data),
++    onSuccess: (updated) => qc.setQueryData(['settings'], updated),
++  })
+ }
+\ No newline at end of file
+diff --git a/frontend/lib/types.ts b/frontend/lib/types.ts
+index 3f45328..5f07020 100644
+--- a/frontend/lib/types.ts
++++ b/frontend/lib/types.ts
+@@ -3,6 +3,12 @@ export type EventType = 'watering' | 'fertilizing' | 'pruning' | 'other'
+ export type RecurrenceType = 'once' | 'weekly' | 'monthly' | 'yearly'
+ export type NotificationStatus = 'pending' | 'sent' | 'failed'
+ export type NotificationFrequency = 'daily' | 'weekly' | 'monthly'
++export type AppLanguage = 'en' | 'es'
++
++export interface AppSettings {
++  language: AppLanguage
++  gardener_prompt: string
++}
+ 
+ export interface GardenItem {
+   id: number
+diff --git a/frontend/lib/utils.ts b/frontend/lib/utils.ts
+index e49e014..6f4366b 100644
+--- a/frontend/lib/utils.ts
++++ b/frontend/lib/utils.ts
+@@ -5,8 +5,8 @@ export function cn(...inputs: ClassValue[]) {
+   return twMerge(clsx(inputs))
+ }
+ 
+-export function formatDate(dateStr: string): string {
+-  return new Date(dateStr).toLocaleDateString('en-US', {
++export function formatDate(dateStr: string, locale: 'en' | 'es' = 'en'): string {
++  return new Date(dateStr).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
+     year: 'numeric',
+     month: 'long',
+     day: 'numeric',
+diff --git a/frontend/next.config.ts b/frontend/next.config.ts
+index 6a53962..c3a67c4 100644
+--- a/frontend/next.config.ts
++++ b/frontend/next.config.ts
+@@ -3,14 +3,9 @@ import type { NextConfig } from 'next'
+ const nextConfig: NextConfig = {
+   output: 'standalone',
+   images: {
+-    remotePatterns: [
+-      {
+-        protocol: 'http',
+-        hostname: 'localhost',
+-        port: '8000',
+-        pathname: '/media/**',
+-      },
+-    ],
++    // Media is served directly by Django (possibly from a changing LAN IP),
++    // so skip next/image optimization and hostname allow-listing.
++    unoptimized: true,
+   },
+ }
+ 
+diff --git a/frontend/package.json b/frontend/package.json
+index 29a6a46..ab97c40 100644
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -3,7 +3,7 @@
+   "version": "0.1.0",
+   "private": true,
+   "scripts": {
+-    "dev": "next dev",
++    "dev": "next dev -H 0.0.0.0",
+     "build": "next build",
+     "start": "next start",
+     "lint": "next lint",
+diff --git a/frontend/tsconfig.json b/frontend/tsconfig.json
+index 522b6a0..d81d4ee 100644
+--- a/frontend/tsconfig.json
++++ b/frontend/tsconfig.json
+@@ -1,6 +1,10 @@
+ {
+   "compilerOptions": {
+-    "lib": ["dom", "dom.iterable", "esnext"],
++    "lib": [
++      "dom",
++      "dom.iterable",
++      "esnext"
++    ],
+     "allowJs": true,
+     "skipLibCheck": true,
+     "strict": true,
+@@ -12,11 +16,25 @@
+     "isolatedModules": true,
+     "jsx": "preserve",
+     "incremental": true,
+-    "plugins": [{ "name": "next" }],
++    "plugins": [
++      {
++        "name": "next"
++      }
++    ],
+     "paths": {
+-      "@/*": ["./*"]
+-    }
++      "@/*": [
++        "./*"
++      ]
++    },
++    "target": "ES2017"
+   },
+-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+-  "exclude": ["node_modules"]
++  "include": [
++    "next-env.d.ts",
++    "**/*.ts",
++    "**/*.tsx",
++    ".next/types/**/*.ts"
++  ],
++  "exclude": [
++    "node_modules"
++  ]
+ }
