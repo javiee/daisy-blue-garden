@@ -65,6 +65,49 @@ describe('EventFormModal (create mode)', () => {
   })
 })
 
+describe('EventFormModal (general task, no item)', () => {
+  const taskEvent: CalendarEvent = {
+    ...baseEvent,
+    id: 42,
+    item: null,
+    item_detail: null,
+    title: 'Mow lawn',
+    description: '',
+    date: '2026-10-20',
+    recurrence: 'weekly',
+    event_type: 'other',
+    end_date: null,
+    repeats_yearly: false,
+  }
+
+  it('creates a task event without an item when no itemId is given', async () => {
+    const user = userEvent.setup()
+    render(<EventFormModal onClose={vi.fn()} />)
+    await user.type(screen.getByPlaceholderText(/water deeply/i), 'Mow lawn')
+    await user.click(screen.getByRole('button', { name: /add event/i }))
+    expect(mockCreateMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Mow lawn',
+        item: null,
+        is_manual: true,
+      })
+    )
+  })
+
+  it('keeps item null when editing a task event', async () => {
+    const user = userEvent.setup()
+    render(<EventFormModal event={taskEvent} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(mockUpdateMutate).toHaveBeenCalledWith({
+      id: 42,
+      data: expect.objectContaining({
+        item: null,
+        title: 'Mow lawn',
+      }),
+    })
+  })
+})
+
 describe('EventFormModal (edit mode)', () => {
   it('prefills fields from the event and shows a checked repeat checkbox', () => {
     render(<EventFormModal itemId={1} event={baseEvent} onClose={vi.fn()} />)

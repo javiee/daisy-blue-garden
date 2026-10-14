@@ -126,7 +126,7 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
   const generateCare = useGenerateCare()
   const patch = usePatchGardenItem(itemId)
   const patchPhoto = usePatchGardenItemPhoto(itemId)
-  const deleteEvent = useDeleteEvent(itemId)
+  const deleteEvent = useDeleteEvent()
 
   // Stop "regenerating" when the LLM task saved new content (updated_at changed)
   useEffect(() => {

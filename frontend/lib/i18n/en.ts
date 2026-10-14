@@ -10,6 +10,7 @@ export const en = {
     garden: 'Garden',
     addPlant: 'Add Plant',
     calendar: 'Calendar',
+    tasks: 'Tasks',
     notifications: 'Notifications',
     settings: 'Settings',
   },
@@ -93,6 +94,12 @@ export const en = {
     week: 'Week',
     month: 'Month',
     weekOf: 'Week of {{date}}',
+  },
+  tasks: {
+    title: 'Garden Care',
+    subtitle: 'General tasks for your whole garden — cleaning, pest control, tools and more.',
+    addTask: 'Add Task',
+    noTasks: 'No garden tasks yet. Add your first one!',
   },
   eventCard: {
     manual: 'Manual',

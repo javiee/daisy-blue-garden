@@ -64,6 +64,15 @@ export function useCalendarEvents(params?: { week?: string; month?: string; item
   })
 }
 
+export function useGeneralEvents() {
+  // Base events only, so the Tareas page lists task series, not every
+  // materialized occurrence.
+  return useQuery({
+    queryKey: ['events', 'general'],
+    queryFn: () => api.events.list({ general: 'true', base_only: 'true' }),
+  })
+}
+
 export function useItemEvents(itemId: number, baseOnly = true) {
   return useQuery({
     queryKey: ['events', 'item', itemId, { baseOnly }],
@@ -72,7 +81,7 @@ export function useItemEvents(itemId: number, baseOnly = true) {
   })
 }
 
-export function useDeleteEvent(itemId: number) {
+export function useDeleteEvent() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (eventId: number) => api.events.delete(eventId),
@@ -81,7 +90,7 @@ export function useDeleteEvent(itemId: number) {
   })
 }
 
-export function useCreateEvent(itemId: number) {
+export function useCreateEvent(itemId?: number | null) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: Omit<import('./types').CalendarEvent, 'id' | 'item_detail' | 'created_at' | 'parent_event'>) =>

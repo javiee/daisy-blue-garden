@@ -64,7 +64,7 @@ export const api = {
   },
 
   events: {
-    list: (params?: { week?: string; month?: string; item?: number; base_only?: string }) => {
+    list: (params?: { week?: string; month?: string; item?: number; base_only?: string; general?: string }) => {
       const qs = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : ''
       return request<PaginatedResponse<CalendarEvent>>(`/events/${qs}`)
     },

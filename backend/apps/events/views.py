@@ -33,6 +33,9 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
         base_only = self.request.query_params.get('base_only')
         if base_only in ('1', 'true', 'True'):
             qs = qs.filter(parent_event__isnull=True)
+        general = self.request.query_params.get('general')
+        if general in ('1', 'true', 'True'):
+            qs = qs.filter(item__isnull=True)
         return qs
 
     @action(detail=False, methods=['get'], url_path='by-item/(?P<item_id>[^/.]+)')

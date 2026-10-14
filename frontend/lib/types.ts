@@ -23,8 +23,9 @@ export interface GardenItem {
 
 export interface CalendarEvent {
   id: number
-  item: number
-  item_detail: GardenItem
+  /** null = general garden task (no plant), shown in the Tareas section */
+  item: number | null
+  item_detail: GardenItem | null
   title: string
   description: string
   date: string

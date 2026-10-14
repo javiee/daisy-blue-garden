@@ -8,7 +8,8 @@ import { useI18n } from '@/lib/i18n'
 import type { TKey } from '@/lib/i18n/en'
 
 interface EventFormModalProps {
-  itemId: number
+  /** Omit or pass null to create a general garden task (no plant). */
+  itemId?: number | null
   onClose: () => void
   /** When provided, the modal edits this event instead of creating one. */
   event?: CalendarEvent
@@ -38,7 +39,7 @@ export function EventFormModal({ itemId, onClose, event }: EventFormModalProps) 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const payload = {
-      item: event ? event.item : itemId,
+      item: event ? event.item : itemId ?? null,
       title,
       description,
       date,

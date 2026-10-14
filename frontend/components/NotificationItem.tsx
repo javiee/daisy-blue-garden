@@ -27,7 +27,10 @@ export function NotificationItem({ notification, onAcknowledge, isAcknowledging 
         </div>
         {event && (
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            🌿 {event.item_detail?.name} · 📅 {formatDate(event.date, locale)}
+            {event.item_detail && (
+              <>🌿 {event.item_detail.name} · </>
+            )}
+            📅 {formatDate(event.date, locale)}
           </p>
         )}
         {notification.sent_at && (

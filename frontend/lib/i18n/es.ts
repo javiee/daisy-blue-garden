@@ -12,6 +12,7 @@ export const es: TranslationDict = {
     garden: 'Jardín',
     addPlant: 'Añadir Planta',
     calendar: 'Calendario',
+    tasks: 'Tareas',
     notifications: 'Notificaciones',
     settings: 'Ajustes',
   },
@@ -95,6 +96,12 @@ export const es: TranslationDict = {
     week: 'Semana',
     month: 'Mes',
     weekOf: 'Semana del {{date}}',
+  },
+  tasks: {
+    title: 'Cuidados de mi Jardín',
+    subtitle: 'Tareas generales de todo el jardín: limpieza, control de plagas, herramientas y más.',
+    addTask: 'Añadir Tarea',
+    noTasks: 'Aún no hay tareas de jardín. ¡Añade la primera!',
   },
   eventCard: {
     manual: 'Manual',

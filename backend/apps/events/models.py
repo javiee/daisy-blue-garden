@@ -14,10 +14,13 @@ class CalendarEvent(models.Model):
         ('pruning', 'Pruning'),
         ('other', 'Other'),
     ]
+    # Null = general garden task (no specific plant/tree), shown in the Tareas section.
     item = models.ForeignKey(
         'garden.GardenItem',
         on_delete=models.CASCADE,
         related_name='events',
+        null=True,
+        blank=True,
     )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
