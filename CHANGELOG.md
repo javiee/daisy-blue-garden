@@ -10,6 +10,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Editable care events + "repeat every year"** — Every care event can now be edited from the frontend, and events repeat every year by default (review events and untick the exceptions):
+  - **Click any event on the calendar** (week-view chip or month-view dot) to open the edit form. Clicking an occurrence of a recurring series edits the whole series (the base event).
+  - **Edit button on event cards** in the plant detail page (next to the delete button).
+  - **`repeats_yearly` flag** (default `True`) on `CalendarEvent`: a `once` event fires on the same date each following year; a weekly/monthly series repeats its start→end date window each year (e.g. fertilize monthly, February → June, every year). The checkbox is hidden for `yearly` events, which repeat by definition.
+  - **`EventFormModal`** replaces `AddEventModal`: one form for create and edit, with a "Repeat every year" checkbox (checked by default) and the end-date field for windowed series.
+  - **Series regeneration on edit** — `perform_update` deletes a base event's materialized occurrences and re-expands them when the definition changes; `perform_destroy` deletes a base event's occurrences instead of orphaning them.
+  - `api.events.detail(id)` and `useUpdateEvent` React Query hook; event mutations now invalidate the `['events']` query prefix so the calendar page refetches after create/update/delete.
+  - Notification acknowledge: a repeating `once` event defers its next reminder to the same date next year instead of re-notifying.
+
+### Added
+
 - **Inline plant page editing** — The plant detail page is now fully editable without leaving the page:
   - **Description** — hover over the About section to reveal a pencil icon; click to enter edit mode (textarea + Save / Cancel).
   - **Care Guide** — same inline edit pattern; a trash icon in the section header clears the care guide entirely.

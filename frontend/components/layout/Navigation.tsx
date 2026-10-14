@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Plus, Calendar, Bell, Settings } from 'lucide-react'
+import { Home, Plus, Calendar, ListChecks, Bell, Settings } from 'lucide-react'
 import { usePendingNotifications } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
@@ -12,6 +12,7 @@ const links: { href: string; key: TKey; icon: typeof Home }[] = [
   { href: '/', key: 'nav.garden', icon: Home },
   { href: '/garden/new', key: 'nav.addPlant', icon: Plus },
   { href: '/calendar', key: 'nav.calendar', icon: Calendar },
+  { href: '/tareas', key: 'nav.tasks', icon: ListChecks },
   { href: '/notifications', key: 'nav.notifications', icon: Bell },
   { href: '/settings', key: 'nav.settings', icon: Settings },
 ]

@@ -10,6 +10,7 @@ export const en = {
     garden: 'Garden',
     addPlant: 'Add Plant',
     calendar: 'Calendar',
+    tasks: 'Tasks',
     notifications: 'Notifications',
     settings: 'Settings',
   },
@@ -94,14 +95,22 @@ export const en = {
     month: 'Month',
     weekOf: 'Week of {{date}}',
   },
+  tasks: {
+    title: 'Garden Care',
+    subtitle: 'General tasks for your whole garden — cleaning, pest control, tools and more.',
+    addTask: 'Add Task',
+    noTasks: 'No garden tasks yet. Add your first one!',
+  },
   eventCard: {
     manual: 'Manual',
     until: 'until {{date}}',
     confirmDelete: 'Confirm delete',
     deleteEvent: 'Delete event',
+    editEvent: 'Edit event',
   },
   addEventModal: {
     title: 'Add Care Event',
+    editTitle: 'Edit Care Event',
     titleLabel: 'Title',
     titlePlaceholder: 'e.g. Water deeply',
     descriptionLabel: 'Description',
@@ -110,6 +119,7 @@ export const en = {
     typeLabel: 'Type',
     recurrenceLabel: 'Recurrence',
     endDateLabel: 'End Date',
+    repeatsYearly: 'Repeat every year',
     addEvent: 'Add Event',
   },
   notifications: {

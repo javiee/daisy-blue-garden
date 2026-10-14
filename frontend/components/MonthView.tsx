@@ -27,9 +27,10 @@ const EVENT_COLORS: Record<string, string> = {
 interface Props {
   events: CalendarEvent[]
   currentDate: Date
+  onEventClick?: (event: CalendarEvent) => void
 }
 
-export function MonthView({ events, currentDate }: Props) {
+export function MonthView({ events, currentDate, onEventClick }: Props) {
   const { t, locale } = useI18n()
   const dfLocale = locale === 'es' ? esLocale : undefined
   const monthStart = startOfMonth(currentDate)
@@ -71,9 +72,11 @@ export function MonthView({ events, currentDate }: Props) {
                 </div>
                 <div className="space-y-0.5">
                   {dayEvents.slice(0, 3).map((event) => (
-                    <div
+                    <button
                       key={event.id}
-                      className={`h-2 rounded-full ${EVENT_COLORS[event.event_type] ?? 'bg-gray-400'}`}
+                      type="button"
+                      onClick={onEventClick ? () => onEventClick(event) : undefined}
+                      className={`block w-full h-2 rounded-full ${EVENT_COLORS[event.event_type] ?? 'bg-gray-400'} hover:opacity-60 transition-opacity`}
                       title={event.title}
                     />
                   ))}

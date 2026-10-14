@@ -28,6 +28,7 @@ const mockNotification: Notification = {
     created_at: '2024-01-01T00:00:00Z',
     parent_event: null,
     end_date: null,
+    repeats_yearly: true,
   },
   telegram_message_id: '999',
   status: 'sent',

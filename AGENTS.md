@@ -75,7 +75,7 @@ cd frontend && npm install && npm run dev
 - **Local `.env` is at the repo root**, but Django reads `backend/.env` (see `environ.Env.read_env` in `backend/config/settings/base.py`) — which does not exist, so local runs fall back to the sqlite default (`DATABASE_URL` unset). To run locally against the shared MySQL, export the vars first, e.g. `set -a; source .env; set +a` in `backend/`.
 - **There is no local qcluster** — locally queued tasks are consumed by **javi's** qcluster (same DB). That only works because the SECRET_KEYs match (see invariants).
 - `npm test` in `frontend/` runs Vitest in **watch mode**; for one-shot runs use `npx vitest run`.
-- Tests: `cd backend && python3 manage.py test` (84 tests) · `cd frontend && npx tsc --noEmit` · `cd frontend && npx vitest run`
+- Tests: `cd backend && python3 manage.py test` (138 tests) · `cd frontend && npx tsc --noEmit` · `cd frontend && npx vitest run` (39 tests)
 
 ## Housekeeping
 

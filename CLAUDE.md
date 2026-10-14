@@ -112,7 +112,11 @@ The LLM system prompt (the "gardener") is configurable from the Settings page vi
 | date | DateField | When to perform |
 | recurrence | CharField(20) | once/weekly/monthly/yearly |
 | event_type | CharField(20) | watering/fertilizing/pruning/other |
+| is_manual | BooleanField | User-created (survives LLM regeneration) |
 | created_at | DateTimeField | Auto |
+| end_date | DateField(null) | Stops a recurring series |
+| parent_event | FK(CalendarEvent, null) | Set on materialized occurrences of a recurring series |
+| repeats_yearly | BooleanField (default True) | Pattern continues in following years (a 'once' event repeats on the same date; a weekly/monthly series repeats its start→end window) |
 
 ### NotificationConfig
 | Field | Type | Description |

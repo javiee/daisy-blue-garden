@@ -27,8 +27,9 @@ import {
 import { TypeBadge } from '@/components/TypeBadge'
 import { EventCard } from '@/components/EventCard'
 import { LoadingSkeleton } from '@/components/LoadingSkeleton'
-import { AddEventModal } from '@/components/AddEventModal'
+import { EventFormModal } from '@/components/EventFormModal'
 import { useI18n } from '@/lib/i18n'
+import type { CalendarEvent } from '@/lib/types'
 
 function InlineTextEdit({
   value,
@@ -115,6 +116,7 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
   const { t } = useI18n()
 
   const [showAddEvent, setShowAddEvent] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
   const [regenerating, setRegenerating] = useState(false)
   const [regenError, setRegenError] = useState<string | null>(null)
   const updatedAtAtStart = useRef<string | null>(null)
@@ -124,7 +126,7 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
   const generateCare = useGenerateCare()
   const patch = usePatchGardenItem(itemId)
   const patchPhoto = usePatchGardenItemPhoto(itemId)
-  const deleteEvent = useDeleteEvent(itemId)
+  const deleteEvent = useDeleteEvent()
 
   // Stop "regenerating" when the LLM task saved new content (updated_at changed)
   useEffect(() => {
@@ -296,7 +298,15 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {showAddEvent && (
-        <AddEventModal itemId={itemId} onClose={() => setShowAddEvent(false)} />
+        <EventFormModal itemId={itemId} onClose={() => setShowAddEvent(false)} />
+      )}
+
+      {editingEvent && (
+        <EventFormModal
+          itemId={itemId}
+          event={editingEvent}
+          onClose={() => setEditingEvent(null)}
+        />
       )}
 
       {/* Upcoming events */}
@@ -323,6 +333,7 @@ export default function PlantDetailPage({ params }: { params: Promise<{ id: stri
                 key={event.id}
                 event={event}
                 onDelete={(id) => deleteEvent.mutateAsync(id)}
+                onEdit={(e) => setEditingEvent(e)}
               />
             ))}
           </div>

@@ -24,13 +24,14 @@ class NotificationAcknowledgeTest(TestCase):
         self.item = GardenItem.objects.create(name='Rose', type='plant')
         self.config = NotificationConfig.objects.create(telegram_chat_id='12345')
 
-    def _make_notification(self, recurrence):
+    def _make_notification(self, recurrence, repeats_yearly=True):
         event = CalendarEvent.objects.create(
             item=self.item,
             title='Test',
             date=date.today() + timedelta(days=2),
             recurrence=recurrence,
             event_type='watering',
+            repeats_yearly=repeats_yearly,
         )
         return Notification.objects.create(event=event, config=self.config, status='sent')
 
@@ -57,7 +58,7 @@ class NotificationAcknowledgeTest(TestCase):
         self.assertEqual(notif.next_occurrence_date, expected)
 
     def test_once_next_occurrence_is_none(self):
-        notif = self._make_notification('once')
+        notif = self._make_notification('once', repeats_yearly=False)
         notif.acknowledge()
         self.assertIsNone(notif.next_occurrence_date)
 

@@ -23,6 +23,7 @@ rsync -az --delete \
   --exclude 'deploy/env.javi' \
   --exclude db.sqlite3 \
   --exclude media \
+  --exclude images \
   --exclude 'diff*.txt' \
   "$ROOT/" "$HOST:$REMOTE_DIR/"
 

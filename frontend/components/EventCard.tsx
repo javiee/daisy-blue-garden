@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2, X, Check } from 'lucide-react'
+import { Pencil, Trash2, X, Check } from 'lucide-react'
 import type { CalendarEvent } from '@/lib/types'
 import { EventTypeIcon } from './EventTypeIcon'
 import { formatDate } from '@/lib/utils'
@@ -11,9 +11,10 @@ import type { TKey } from '@/lib/i18n/en'
 interface EventCardProps {
   event: CalendarEvent
   onDelete?: (id: number) => Promise<unknown>
+  onEdit?: (event: CalendarEvent) => void
 }
 
-export function EventCard({ event, onDelete }: EventCardProps) {
+export function EventCard({ event, onDelete, onEdit }: EventCardProps) {
   const { t, locale } = useI18n()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -57,34 +58,45 @@ export function EventCard({ event, onDelete }: EventCardProps) {
         </div>
       </div>
 
-      {onDelete && (
+      {(onEdit || onDelete) && (
         <div className="flex-shrink-0 flex items-center gap-1">
-          {confirming ? (
-            <>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                title={t('eventCard.confirmDelete')}
-                className="p-2.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900 transition-colors disabled:opacity-50"
-              >
-                <Check className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setConfirming(false)}
-                title={t('common.cancel')}
-                className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </>
-          ) : (
+          {onEdit && (
             <button
-              onClick={() => setConfirming(true)}
-              title={t('eventCard.deleteEvent')}
-              className="p-2.5 rounded-lghover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-all"
+              onClick={() => onEdit(event)}
+              title={t('eventCard.editEvent')}
+              className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 hover:text-green-600 transition-colors"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Pencil className="w-3.5 h-3.5" />
             </button>
+          )}
+          {onDelete && (
+            confirming ? (
+              <>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  title={t('eventCard.confirmDelete')}
+                  className="p-2.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900 transition-colors disabled:opacity-50"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setConfirming(false)}
+                  title={t('common.cancel')}
+                  className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setConfirming(true)}
+                title={t('eventCard.deleteEvent')}
+                className="p-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-all"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )
           )}
         </div>
       )}

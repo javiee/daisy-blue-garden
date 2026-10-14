@@ -14,10 +14,13 @@ class CalendarEvent(models.Model):
         ('pruning', 'Pruning'),
         ('other', 'Other'),
     ]
+    # Null = general garden task (no specific plant/tree), shown in the Tareas section.
     item = models.ForeignKey(
         'garden.GardenItem',
         on_delete=models.CASCADE,
         related_name='events',
+        null=True,
+        blank=True,
     )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -27,6 +30,10 @@ class CalendarEvent(models.Model):
     is_manual = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     end_date = models.DateField(null=True, blank=True)
+    # Whether the pattern continues in following years. Default True: a
+    # 'once' event repeats on the same date each year, and a weekly/monthly
+    # series repeats its start->end window each year.
+    repeats_yearly = models.BooleanField(default=True)
     parent_event = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,
