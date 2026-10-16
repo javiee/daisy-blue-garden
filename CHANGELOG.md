@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Image optimization on upload** — Phone photos are downscaled to a 1600px longest edge and re-encoded (JPEG quality 82) before being stored, with EXIF orientation applied and metadata stripped, so photos load quickly.
+- `manage.py optimize_photos` — one-off management command that optimizes all existing stored photos in place (same filename, no database or URL changes); idempotent, safe to run repeatedly.
 - **Inline plant page editing** — The plant detail page is now fully editable without leaving the page:
   - **Description** — hover over the About section to reveal a pencil icon; click to enter edit mode (textarea + Save / Cancel).
   - **Care Guide** — same inline edit pattern; a trash icon in the section header clears the care guide entirely.
