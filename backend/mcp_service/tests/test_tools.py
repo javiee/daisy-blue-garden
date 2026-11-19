@@ -1,7 +1,7 @@
 import io
 import shutil
 import tempfile
-from datetime import date
+from datetime import date, timedelta
 
 from django.core.files.base import ContentFile
 from django.test import TestCase, override_settings
@@ -84,3 +84,107 @@ class GetGardenItemTest(ToolTestBase):
     def test_not_found_returns_error_dict(self):
         result = tools.get_garden_item(9999)
         self.assertEqual(result, {'error': 'Garden item 9999 not found'})
+
+
+class ListCareEventsTest(ToolTestBase):
+    def _event(self, **kwargs):
+        defaults = dict(item=self.rose, title='t', date=date.today(),
+                        recurrence='once', event_type='watering')
+        defaults.update(kwargs)
+        return CalendarEvent.objects.create(**defaults)
+
+    def test_default_window_excludes_past(self):
+        self._event(date=date.today() - timedelta(days=1))
+        self._event(date=date.today())
+        self._event(date=date.today() + timedelta(days=180))
+        self._event(date=date.today() + timedelta(days=181))
+        result = tools.list_care_events()
+        dates = [e['date'] for e in result['events']]
+        # 3 in window: 'Water Rose' (today, from setUp) + today + +180; -1 and +181 excluded
+        self.assertEqual(len(dates), 3)
+        self.assertEqual(dates, sorted(dates))
+
+    def test_explicit_range_is_inclusive(self):
+        # Oak has no setUp events, so the count is date-independent.
+        self._event(item=self.oak, date=date(2026, 11, 1))
+        self._event(item=self.oak, date=date(2026, 11, 14))
+        self._event(item=self.oak, date=date(2026, 11, 15))
+        result = tools.list_care_events(
+            item_id=self.oak.pk, from_date='2026-11-01', to_date='2026-11-14')
+        self.assertEqual(result['count'], 2)
+
+    def test_filters_by_item_and_event_type(self):
+        self._event(item=self.oak, event_type='fertilizing')
+        self._event(event_type='pruning')
+        result = tools.list_care_events(item_id=self.rose.pk, event_type='watering')
+        self.assertEqual([e['title'] for e in result['events']], ['Water Rose'])
+
+    def test_events_include_item_name(self):
+        result = tools.list_care_events()
+        self.assertEqual(result['events'][0]['item_name'], 'Rose')
+
+    def test_bad_date_returns_error(self):
+        self.assertEqual(
+            tools.list_care_events(from_date='14/11/2026'),
+            {'error': "Invalid date '14/11/2026': use YYYY-MM-DD"})
+
+    def test_unknown_item_returns_error(self):
+        self.assertEqual(
+            tools.list_care_events(item_id=9999),
+            {'error': 'Garden item 9999 not found'})
+
+    def test_truncates_over_100(self):
+        for n in range(101):
+            self._event(date=date.today() + timedelta(days=n), title=f'e{n}')
+        result = tools.list_care_events()
+        self.assertEqual(result['count'], 102)  # 101 new + 'Water Rose'
+        self.assertTrue(result['truncated'])
+        self.assertEqual(len(result['events']), 100)
+
+
+class AddCareEventTest(ToolTestBase):
+    def test_creates_event(self):
+        result = tools.add_care_event(
+            self.rose.pk, 'Deep Water', '2026-12-01', 'watering',
+            recurrence='monthly', description='Soak the root zone.')
+        self.assertEqual(result['status'], 'created')
+        event = CalendarEvent.objects.get(pk=result['id'])
+        self.assertEqual(event.title, 'Deep Water')
+        self.assertEqual(str(event.date), '2026-12-01')
+        self.assertEqual(event.recurrence, 'monthly')
+        self.assertTrue(event.is_manual)
+
+    def test_unknown_item_error(self):
+        self.assertEqual(
+            tools.add_care_event(9999, 't', '2026-12-01', 'watering'),
+            {'error': 'Garden item 9999 not found'})
+
+    def test_invalid_date_error(self):
+        result = tools.add_care_event(self.rose.pk, 't', 'dec 1', 'watering')
+        self.assertEqual(result, {'error': "Invalid date 'dec 1': use YYYY-MM-DD"})
+
+    def test_blank_title_error(self):
+        result = tools.add_care_event(self.rose.pk, '   ', '2026-12-01', 'watering')
+        self.assertEqual(result, {'error': 'Title must not be blank'})
+
+    def test_invalid_event_type_error(self):
+        result = tools.add_care_event(self.rose.pk, 't', '2026-12-01', 'weeding')
+        self.assertEqual(
+            result,
+            {'error': "Invalid event_type 'weeding'. Valid: watering, fertilizing, pruning, other"})
+
+    def test_invalid_recurrence_error(self):
+        result = tools.add_care_event(self.rose.pk, 't', '2026-12-01', 'watering', recurrence='daily')
+        self.assertEqual(
+            result, {'error': "Invalid recurrence 'daily'. Valid: once, weekly, monthly, yearly"})
+
+    def test_no_rows_created_on_errors(self):
+        for call in (
+            lambda: tools.add_care_event(9999, 't', '2026-12-01', 'watering'),
+            lambda: tools.add_care_event(self.rose.pk, 't', 'bad', 'watering'),
+            lambda: tools.add_care_event(self.rose.pk, '', '2026-12-01', 'watering'),
+            lambda: tools.add_care_event(self.rose.pk, 't', '2026-12-01', 'weeding'),
+            lambda: tools.add_care_event(self.rose.pk, 't', '2026-12-01', 'watering', recurrence='daily'),
+        ):
+            call()
+        self.assertEqual(CalendarEvent.objects.count(), 1)  # only 'Water Rose' from setUp
