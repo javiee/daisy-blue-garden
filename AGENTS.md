@@ -63,6 +63,7 @@ ssh javi 'cd ~/www-sites/gardener && docker compose -f docker-compose.deploy.yml
 | Migrations missing on server | They run at backend start automatically; if the backend is stuck on "Waiting for database", check the DB credentials in the server `.env` and that MariaDB is up: `ssh javi 'docker ps --filter name=mariadb'`. |
 | Photos missing after deploy | They live in `~/www-sites/gardener/images` on the host (not in git). Local → server sync is additive only via `deploy.sh`. |
 | MCP client gets 421 | The transport-security allowlist in `backend/mcp_service/app.py` must include the host the client uses (e.g. `192.168.10.65:*`); add it and redeploy. |
+| MCP client gets 403 | The request carries an `Origin` header (browser-based client). Add that origin to `allowed_origins` in `backend/mcp_service/app.py` and redeploy. CLI/desktop clients send no Origin and are unaffected. |
 | mcp service not running | It only starts when `backend` is healthy (depends_on healthcheck). Check `docker compose ps` for backend health state. |
 
 ## Local development

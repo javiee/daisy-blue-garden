@@ -10,6 +10,7 @@ from django.conf import settings
 from django.db.models import Count, Q
 
 from apps.events.models import CalendarEvent
+from apps.events.scheduler import generate_recurring_events
 from apps.garden.models import GardenItem
 
 GARDEN_ITEMS_CAP = 50
@@ -134,6 +135,13 @@ def add_care_event(item_id: int, title: str, date: str, event_type: str,
         item_id=item_id, title=title, date=event_date, event_type=event_type,
         recurrence=recurrence, description=description, is_manual=True,
     )
+    if event.recurrence != 'once':
+        # Same as the REST API's perform_create: expand future occurrences so the
+        # recurrence shows up on the calendar, in list_care_events and notifications.
+        # Occurrences are marked manual too, so care regeneration preserves them.
+        for occurrence in generate_recurring_events(event):
+            occurrence.is_manual = True
+            occurrence.save(update_fields=['is_manual'])
     return {
         'status': 'created',
         'id': event.pk,

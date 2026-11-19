@@ -178,6 +178,17 @@ class AddCareEventTest(ToolTestBase):
         self.assertEqual(
             result, {'error': "Invalid recurrence 'daily'. Valid: once, weekly, monthly, yearly"})
 
+    def test_recurring_event_expands_occurrences(self):
+        result = tools.add_care_event(
+            self.rose.pk, 'Weekly Water', (date.today() + timedelta(days=1)).isoformat(),
+            'watering', recurrence='weekly')
+        base = CalendarEvent.objects.get(pk=result['id'])
+        occurrences = list(CalendarEvent.objects.filter(parent_event=base))
+        self.assertGreater(len(occurrences), 0)
+        self.assertTrue(all(o.date > base.date for o in occurrences))
+        # occurrences are manual too, so care regeneration preserves the recurrence
+        self.assertTrue(all(o.is_manual for o in occurrences))
+
     def test_no_rows_created_on_errors(self):
         for call in (
             lambda: tools.add_care_event(9999, 't', '2026-12-01', 'watering'),
