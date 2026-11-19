@@ -110,6 +110,10 @@ OLLAMA_BASE_URL = env('OLLAMA_BASE_URL', default='http://localhost:11434')
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_CHAT_ID = env('TELEGRAM_CHAT_ID', default='')
 
+# Public base URL of this backend, used by the MCP service to build absolute
+# photo URLs (the API returns them absolute from the request Host; MCP has no request).
+PUBLIC_BASE_URL = env('PUBLIC_BASE_URL', default='http://localhost:8000')
+
 Q_CLUSTER = {
     'name': 'daisyblue',
     'workers': 2,
