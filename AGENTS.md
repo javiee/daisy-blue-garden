@@ -17,7 +17,7 @@ What it does, in order:
 4. `ssh javi 'docker compose -f docker-compose.deploy.yml up -d --build'` + health checks
 
 - **Server:** ssh host `javi` = 192.168.10.65 (user `jcaro`, key `~/.ssh/javi`)
-- **Stack on server:** `backend` (gunicorn, :8000) + `qcluster` (django-q worker) + `frontend` (Next.js, :3000) — defined in `docker-compose.deploy.yml`
+- **Stack on server:** `backend` (gunicorn, :8000) + `qcluster` (django-q worker) + `mcp` (MCP streamable-HTTP, :8001) + `frontend` (Next.js, :3000) — defined in `docker-compose.deploy.yml`
 - **Site:** http://192.168.10.65:3000 · **API:** http://192.168.10.65:8000/api/v1
 - **Timing:** first deploy ~3–5 min (image builds); subsequent deploys ~10–30s (layer caching)
 - **`deploy/env.javi`** is gitignored and is the source of truth for server env (SECRET_KEY, DB URL, LLM key, Telegram, `ALLOWED_HOSTS`). When you change any of these keys locally, update `deploy/env.javi` too, or the server keeps the old values.
@@ -62,6 +62,8 @@ ssh javi 'cd ~/www-sites/gardener && docker compose -f docker-compose.deploy.yml
 | Frontend can't reach API | Browser needs `<host>:8000` open and allowed; check backend port mapping and `ALLOWED_HOSTS`. |
 | Migrations missing on server | They run at backend start automatically; if the backend is stuck on "Waiting for database", check the DB credentials in the server `.env` and that MariaDB is up: `ssh javi 'docker ps --filter name=mariadb'`. |
 | Photos missing after deploy | They live in `~/www-sites/gardener/images` on the host (not in git). Local → server sync is additive only via `deploy.sh`. |
+| MCP client gets 421 | The transport-security allowlist in `backend/mcp_service/app.py` must include the host the client uses (e.g. `192.168.10.65:*`); add it and redeploy. |
+| mcp service not running | It only starts when `backend` is healthy (depends_on healthcheck). Check `docker compose ps` for backend health state. |
 
 ## Local development
 
