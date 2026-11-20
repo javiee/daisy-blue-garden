@@ -18,7 +18,7 @@ What it does, in order:
 
 - **Server:** ssh host `javi` = 192.168.10.65 (user `jcaro`, key `~/.ssh/javi`)
 - **Stack on server:** `backend` (gunicorn, :8000) + `qcluster` (django-q worker) + `mcp` (MCP streamable-HTTP, :8001) + `frontend` (Next.js, :3000) — defined in `docker-compose.deploy.yml`
-- **Site:** http://192.168.10.65:3000 · **API:** http://192.168.10.65:8000/api/v1
+- **Site:** http://192.168.10.65:3000 · **API:** http://192.168.10.65:8000/api/v1 · **MCP:** http://192.168.10.65:8001/mcp — streamable-HTTP MCP server for AI clients; tools and `{"error": ...}` convention documented in `CLAUDE.md` (§ MCP)
 - **Timing:** first deploy ~3–5 min (image builds); subsequent deploys ~10–30s (layer caching)
 - **`deploy/env.javi`** is gitignored and is the source of truth for server env (SECRET_KEY, DB URL, LLM key, Telegram, `ALLOWED_HOSTS`). When you change any of these keys locally, update `deploy/env.javi` too, or the server keeps the old values.
 - **Database:** MariaDB running on javi itself (`mysql://gardener@192.168.10.65:3306/gardener`, same host as the app). Migrations run automatically at backend container start (`backend/entrypoint.sh` waits for DB, runs `makemigrations --noinput` + `migrate`, then starts gunicorn).
