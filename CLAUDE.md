@@ -158,6 +158,17 @@ PUT    /api/v1/settings/     Update app settings
 PATCH  /api/v1/settings/     Partially update app settings (e.g. { language: "es", gardener_prompt: "..." })
 ```
 
+### MCP
+
+Streamable-HTTP MCP server for AI clients (Claude Desktop, OpenCode, …). Served by the `mcp` container (own process, reuses the backend image) at `http://192.168.10.65:8001/mcp`, stateless. It uses the Django ORM directly — same database as the API — and exposes four tools:
+
+- `list_garden_items(type?, search?)` — list plants/trees with name, type, AI description, care guide, photo URL, event count; optional type filter and case-insensitive search over name/type/description (cap 50).
+- `get_garden_item(item_id)` — full details of one item including its complete care calendar.
+- `list_care_events(item_id?, event_type?, from_date?, to_date?)` — care calendar; dates `YYYY-MM-DD`, defaults to the next 6 months, inclusive range (cap 100).
+- `add_care_event(item_id, title, date, event_type, recurrence?, description?)` — create a care event; stored with `is_manual=True` so care regeneration doesn't delete it.
+
+Tools return JSON dicts; failures come back as `{"error": "..."}` dicts rather than exceptions. Photo URLs are built from the `PUBLIC_BASE_URL` env var (server: `http://192.168.10.65:8000`), since MCP requests carry no Host header to infer from. The host allowlist for the transport lives in `backend/mcp_service/app.py`.
+
 ### Garden Items
 
 ```
@@ -324,6 +335,7 @@ docker-compose exec backend python manage.py createsuperuser
 | Service | Port | Description |
 |---------|------|-------------|
 | backend | 8000 | Django API |
+| mcp | 8001 | MCP streamable-HTTP server |
 | frontend | 3000 | Next.js UI |
 | db | 3306 | MySQL 8.0 |
 | redis | 6379 | Celery broker |
